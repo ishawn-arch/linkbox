@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router';
+import { HashRouter as Router, Routes, Route } from 'react-router';
 import { Box, ThemeProvider, CssBaseline, IconButton, Tooltip } from '@mui/material';
 import { LightMode, DarkMode, Refresh } from '@mui/icons-material';
 import { ProcessListPage } from './pages/ProcessListPage';
@@ -9,12 +9,12 @@ import { useState } from 'react';
 
 const _Routes = () => {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         <Route path='/' element={<ProcessListPage />} />
         <Route path='/:id' element={<ProcessOverviewPage />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 };
 
