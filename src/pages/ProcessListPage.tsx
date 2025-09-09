@@ -16,6 +16,7 @@ import {
 import type { Store } from '../utils/db';
 import { ChevronRight } from '@mui/icons-material';
 import { useDatabaseContext } from '../contexts/DatabaseContext';
+import { getProcessInvestments } from '../utils/investments';
 
 /****************************** COMPONENTS ******************************/
 function ProgressPill({ linked, total }: { linked: number; total: number }) {
@@ -34,9 +35,7 @@ export const ProcessTable = ({ store }: { store: Store }) => {
   const processes = Object.values(store.processes);
 
   function processCounts(processId: number) {
-    const invs = store.processes[processId].investmentIds.map(
-      (id) => store.investments[id],
-    );
+    const invs = getProcessInvestments(store, processId);
     const total = invs.length;
     const linked = invs.filter((i) => i.status === 'linked').length;
     const unlinked = total - linked;

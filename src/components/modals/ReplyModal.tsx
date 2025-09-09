@@ -42,7 +42,11 @@ export const ReplyModal = ({
     store && processId
       ? store.processes[processId]?.convoIds
           .map((id) => store.convos[id])
-          .filter(Boolean) || []
+          .filter(Boolean)
+          .sort(
+            (a, b) =>
+              new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
+          ) || []
       : [];
 
   const selectedConversation = selectedConversationId

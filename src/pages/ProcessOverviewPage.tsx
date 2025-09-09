@@ -38,8 +38,8 @@ import {
   Edit as ComposeIcon,
   Add as AddIcon,
   Settings as ManageIcon,
-  Remove as RemoveIcon,
   Reply as ReplyIcon,
+  SwapHoriz as MoveIcon,
 } from '@mui/icons-material';
 import type { DetailMode, ConvoState, EmailMsg, Convo } from '../utils/db';
 import { fmtDate, randBase32, emailAliasForOps } from '../utils/db';
@@ -51,6 +51,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { MessageCard } from '../components/conversations/MessageCard';
 import { SortableTableCell } from '../components/tables/SortableTableCell';
 import { ReplyModal } from '../components/modals/ReplyModal';
+import { MoveConversationModal } from '../components/modals/MoveConversationModal';
 
 // Utility imports
 import {
@@ -62,7 +63,8 @@ import {
 import {
   calculateInvestmentCounts,
   getConversationInvestments,
-  getUnassignedInvestments,
+  getProcessInvestments,
+  getInvestmentsNotInProcess,
   filterInvestmentsByStatus,
 } from '../utils/investments';
 
@@ -96,12 +98,9 @@ export const ProcessOverviewPage = () => {
   const [showEditInvestmentsModal, setShowEditInvestmentsModal] =
     useState<boolean>(false);
   const [editingInvestments, setEditingInvestments] = useState<number[]>([]);
-  const [showAddInvestmentsModal, setShowAddInvestmentsModal] = useState<boolean>(false);
-  const [addingInvestments, setAddingInvestments] = useState<number[]>([]);
-  const [showRemoveInvestmentsModal, setShowRemoveInvestmentsModal] =
-    useState<boolean>(false);
-  const [removingInvestments, setRemovingInvestments] = useState<number[]>([]);
   const [showReplyModal, setShowReplyModal] = useState<boolean>(false);
+  const [showMoveConversationModal, setShowMoveConversationModal] =
+    useState<boolean>(false);
 
   if (isLoading || !store || processId === null) {
     return (
@@ -125,10 +124,13 @@ export const ProcessOverviewPage = () => {
   }
 
   const clientName = store.clients[selectedProcess.clientId].name;
-  const processConvos = selectedProcess.convoIds.map((id) => store.convos[id]);
-  const processInvestments = selectedProcess.investmentIds.map(
-    (id) => store.investments[id],
-  );
+  const processConvos = selectedProcess.convoIds
+    .map((id) => store.convos[id])
+    .sort(
+      (a, b) =>
+        new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
+    );
+  const processInvestments = getProcessInvestments(store, processId);
 
   function handleSortColumn(column: SortColumn) {
     const newSortState = handleSort(sortColumn, sortDirection, column);
@@ -323,112 +325,11 @@ export const ProcessOverviewPage = () => {
     setEditingInvestments([]);
   }
 
-  function getUnassignedInvestmentsForProcess() {
+  function getOtherInvestmentsForConversation() {
     if (!store || !processId) return [];
 
     const selectedProcess = store.processes[processId];
-    return getUnassignedInvestments(store, selectedProcess.clientId);
-  }
-
-  function handleAddInvestments() {
-    setAddingInvestments([]);
-    setShowAddInvestmentsModal(true);
-  }
-
-  function handleSaveAddedInvestments() {
-    if (!processId || !store || addingInvestments.length === 0) return;
-
-    const selectedProcess = store.processes[processId];
-
-    // Update the investments to assign them to this process
-    const updatedInvestments = { ...store.investments };
-    addingInvestments.forEach((invId) => {
-      if (updatedInvestments[invId]) {
-        updatedInvestments[invId] = {
-          ...updatedInvestments[invId],
-          firmProcessId: processId,
-          status: 'in_progress', // Default status when adding to process
-        };
-      }
-    });
-
-    // Update the process to include the new investments
-    const updatedProcess = {
-      ...selectedProcess,
-      investmentIds: [...selectedProcess.investmentIds, ...addingInvestments],
-    };
-
-    const updatedStore = {
-      ...store,
-      investments: updatedInvestments,
-      processes: {
-        ...store.processes,
-        [processId]: updatedProcess,
-      },
-    };
-
-    updateStore(updatedStore);
-    setShowAddInvestmentsModal(false);
-    setAddingInvestments([]);
-  }
-
-  function handleRemoveInvestments() {
-    setRemovingInvestments([]);
-    setShowRemoveInvestmentsModal(true);
-  }
-
-  function handleSaveRemovedInvestments() {
-    if (!processId || !store || removingInvestments.length === 0) return;
-
-    const selectedProcess = store.processes[processId];
-
-    // Update the investments to unassign them from this process
-    const updatedInvestments = { ...store.investments };
-    removingInvestments.forEach((invId) => {
-      if (updatedInvestments[invId]) {
-        updatedInvestments[invId] = {
-          ...updatedInvestments[invId],
-          firmProcessId: null,
-          status: null, // Remove status when removing from process
-        };
-      }
-    });
-
-    // Update the process to remove the investments
-    const updatedProcess = {
-      ...selectedProcess,
-      investmentIds: selectedProcess.investmentIds.filter(
-        (invId) => !removingInvestments.includes(invId),
-      ),
-    };
-
-    // Update all conversations in this process to remove references to these investments
-    const updatedConvos = { ...store.convos };
-    selectedProcess.convoIds.forEach((convoId) => {
-      const convo = updatedConvos[convoId];
-      if (convo) {
-        updatedConvos[convoId] = {
-          ...convo,
-          investmentRefs: convo.investmentRefs.filter(
-            (invId) => !removingInvestments.includes(invId),
-          ),
-        };
-      }
-    });
-
-    const updatedStore = {
-      ...store,
-      investments: updatedInvestments,
-      processes: {
-        ...store.processes,
-        [processId]: updatedProcess,
-      },
-      convos: updatedConvos,
-    };
-
-    updateStore(updatedStore);
-    setShowRemoveInvestmentsModal(false);
-    setRemovingInvestments([]);
+    return getInvestmentsNotInProcess(store, processId, selectedProcess.clientId);
   }
 
   function handleStatusChange(
@@ -502,6 +403,51 @@ export const ProcessOverviewPage = () => {
       convos: {
         ...store.convos,
         [conversationId]: updatedConvo,
+      },
+    };
+
+    updateStore(updatedStore);
+  }
+
+  function handleMoveConversations(conversationIds: string[], targetProcessId: number) {
+    if (!store || !processId || conversationIds.length === 0) return;
+
+    const currentProcess = store.processes[processId];
+    const targetProcess = store.processes[targetProcessId];
+
+    if (!currentProcess || !targetProcess) return;
+
+    // Update conversations to have new process ID
+    const updatedConvos = { ...store.convos };
+    conversationIds.forEach((convoId) => {
+      if (updatedConvos[convoId]) {
+        updatedConvos[convoId] = {
+          ...updatedConvos[convoId],
+          processId: targetProcessId,
+        };
+      }
+    });
+
+    // Remove conversation IDs from current process
+    const updatedCurrentProcess = {
+      ...currentProcess,
+      convoIds: currentProcess.convoIds.filter((id) => !conversationIds.includes(id)),
+    };
+
+    // Add conversation IDs to target process
+    const updatedTargetProcess = {
+      ...targetProcess,
+      convoIds: [...targetProcess.convoIds, ...conversationIds],
+      lastActivityAt: new Date().toISOString(), // Update last activity
+    };
+
+    const updatedStore = {
+      ...store,
+      convos: updatedConvos,
+      processes: {
+        ...store.processes,
+        [processId]: updatedCurrentProcess,
+        [targetProcessId]: updatedTargetProcess,
       },
     };
 
@@ -617,13 +563,27 @@ export const ProcessOverviewPage = () => {
               <CardHeader
                 title='Conversations'
                 action={
-                  <IconButton
-                    onClick={() => setShowNewConvoModal(true)}
-                    color={showNewConvoModal ? 'primary' : 'default'}
-                    size='small'
-                  >
-                    <AddIcon />
-                  </IconButton>
+                  <Stack direction='row' spacing={0.5}>
+                    <Tooltip title='Move conversations to another process'>
+                      <IconButton
+                        onClick={() => setShowMoveConversationModal(true)}
+                        color={showMoveConversationModal ? 'primary' : 'default'}
+                        size='small'
+                        disabled={processConvos.length === 0}
+                      >
+                        <MoveIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title='Add new conversation'>
+                      <IconButton
+                        onClick={() => setShowNewConvoModal(true)}
+                        color={showNewConvoModal ? 'primary' : 'default'}
+                        size='small'
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                 }
                 slotProps={{
                   title: { variant: 'h6' },
@@ -816,27 +776,7 @@ export const ProcessOverviewPage = () => {
                     >
                       <ManageIcon />
                     </IconButton>
-                  ) : (
-                    <Stack direction='row' spacing={0.5}>
-                      <IconButton
-                        onClick={handleAddInvestments}
-                        color='default'
-                        size='small'
-                        title='Add investments to this process'
-                      >
-                        <AddIcon />
-                      </IconButton>
-                      <IconButton
-                        onClick={handleRemoveInvestments}
-                        color='default'
-                        size='small'
-                        title='Remove investments from this process'
-                        disabled={processInvestments.length === 0}
-                      >
-                        <RemoveIcon />
-                      </IconButton>
-                    </Stack>
-                  )
+                  ) : null
                 }
                 slotProps={{
                   title: { variant: 'h6' },
@@ -1356,7 +1296,7 @@ export const ProcessOverviewPage = () => {
           setEditingInvestments([]);
           setShowEditInvestmentsModal(false);
         }}
-        maxWidth='md'
+        maxWidth='lg'
         fullWidth
       >
         <DialogTitle>
@@ -1368,95 +1308,211 @@ export const ProcessOverviewPage = () => {
           )}
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 1 }}>
-            <Card sx={{ height: '400px', display: 'flex', flexDirection: 'column' }}>
-              <CardHeader
-                title='Select Investments'
-                subheader={`${editingInvestments.length} of ${processInvestments.length} selected`}
-                slotProps={{
-                  title: { variant: 'h6' },
-                  subheader: { variant: 'caption' },
-                }}
-              />
-              <Box
-                sx={{
-                  borderTop: 1,
-                  borderColor: 'divider',
-                }}
-              />
-              <Box sx={{ flex: 1, overflow: 'auto' }}>
-                <List disablePadding>
-                  {sortInvestments(processInvestments, null, null).map((inv) => (
-                    <ListItem key={inv.id} disablePadding>
-                      <ListItemButton
-                        selected={editingInvestments.includes(inv.id)}
-                        onClick={() => {
-                          if (editingInvestments.includes(inv.id)) {
-                            setEditingInvestments(
-                              editingInvestments.filter((id) => id !== inv.id),
-                            );
-                          } else {
-                            setEditingInvestments([...editingInvestments, inv.id]);
-                          }
-                        }}
-                        sx={{ py: 1.5 }}
-                      >
-                        <ListItemIcon>
-                          <Checkbox
-                            checked={editingInvestments.includes(inv.id)}
-                            tabIndex={-1}
-                            disableRipple
-                          />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={
-                            <Stack
-                              direction='row'
-                              justifyContent='space-between'
-                              alignItems='center'
-                            >
-                              <Typography
-                                variant='subtitle2'
-                                sx={{
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
+          <Stack direction='row' spacing={3} sx={{ mt: 1, height: '500px' }}>
+            {/* Process Investments */}
+            <Box sx={{ flex: '1', minWidth: '300px' }}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardHeader
+                  title='Process Investments'
+                  subheader={`${
+                    editingInvestments.filter((id) =>
+                      processInvestments.some((inv) => inv.id === id),
+                    ).length
+                  } of ${processInvestments.length} selected`}
+                  slotProps={{
+                    title: { variant: 'h6' },
+                    subheader: { variant: 'caption' },
+                  }}
+                />
+                <Box
+                  sx={{
+                    borderTop: 1,
+                    borderColor: 'divider',
+                  }}
+                />
+                <Box sx={{ flex: 1, overflow: 'auto' }}>
+                  <List disablePadding>
+                    {sortInvestments(processInvestments, null, null).map((inv) => (
+                      <ListItem key={inv.id} disablePadding>
+                        <ListItemButton
+                          selected={editingInvestments.includes(inv.id)}
+                          onClick={() => {
+                            if (editingInvestments.includes(inv.id)) {
+                              setEditingInvestments(
+                                editingInvestments.filter((id) => id !== inv.id),
+                              );
+                            } else {
+                              setEditingInvestments([...editingInvestments, inv.id]);
+                            }
+                          }}
+                          sx={{ py: 1.5 }}
+                        >
+                          <ListItemIcon>
+                            <Checkbox
+                              checked={editingInvestments.includes(inv.id)}
+                              tabIndex={-1}
+                              disableRipple
+                            />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={
+                              <Stack
+                                direction='row'
+                                justifyContent='space-between'
+                                alignItems='center'
                               >
-                                {inv.investingEntity}
-                              </Typography>
-                              {inv.status && (
-                                <Badge
-                                  text={inv.status.replace('_', ' ')}
-                                  tone={
-                                    inv.status === 'linked'
-                                      ? 'green'
-                                      : inv.status === 'in_progress'
-                                      ? 'amber'
-                                      : 'gray'
-                                  }
-                                />
-                              )}
-                            </Stack>
-                          }
-                          secondary={
-                            <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                              <Typography variant='caption' color='text.secondary'>
-                                {inv.fundName}
-                              </Typography>
-                              <Typography variant='caption' color='text.secondary'>
-                                #{inv.id}
-                              </Typography>
-                            </Stack>
-                          }
-                        />
-                      </ListItemButton>
-                    </ListItem>
-                  ))}
-                </List>
-              </Box>
-            </Card>
-          </Box>
+                                <Typography
+                                  variant='subtitle2'
+                                  sx={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {inv.investingEntity}
+                                </Typography>
+                                {inv.status && (
+                                  <Badge
+                                    text={inv.status.replace('_', ' ')}
+                                    tone={
+                                      inv.status === 'linked'
+                                        ? 'green'
+                                        : inv.status === 'in_progress'
+                                        ? 'amber'
+                                        : 'gray'
+                                    }
+                                  />
+                                )}
+                              </Stack>
+                            }
+                            secondary={
+                              <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                                <Typography variant='caption' color='text.secondary'>
+                                  {inv.fundName}
+                                </Typography>
+                                <Typography variant='caption' color='text.secondary'>
+                                  #{inv.id}
+                                </Typography>
+                              </Stack>
+                            }
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              </Card>
+            </Box>
+
+            {/* Other Investments */}
+            <Box sx={{ flex: '1', minWidth: '300px' }}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardHeader
+                  title='Other Investments'
+                  subheader={(() => {
+                    const otherInvestments = getOtherInvestmentsForConversation();
+                    const selectedOther = editingInvestments.filter((id) =>
+                      otherInvestments.some((inv) => inv.id === id),
+                    ).length;
+                    return `${selectedOther} of ${otherInvestments.length} selected`;
+                  })()}
+                  slotProps={{
+                    title: { variant: 'h6' },
+                    subheader: { variant: 'caption' },
+                  }}
+                />
+                <Box
+                  sx={{
+                    borderTop: 1,
+                    borderColor: 'divider',
+                  }}
+                />
+                <Box sx={{ flex: 1, overflow: 'auto' }}>
+                  {getOtherInvestmentsForConversation().length === 0 ? (
+                    <Box sx={{ p: 3, textAlign: 'center' }}>
+                      <Typography variant='body2' color='text.secondary'>
+                        No other investments available for this client.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <List disablePadding>
+                      {sortInvestments(
+                        getOtherInvestmentsForConversation(),
+                        'id',
+                        'asc',
+                      ).map((inv) => (
+                        <ListItem key={inv.id} disablePadding>
+                          <ListItemButton
+                            selected={editingInvestments.includes(inv.id)}
+                            onClick={() => {
+                              if (editingInvestments.includes(inv.id)) {
+                                setEditingInvestments(
+                                  editingInvestments.filter((id) => id !== inv.id),
+                                );
+                              } else {
+                                setEditingInvestments([...editingInvestments, inv.id]);
+                              }
+                            }}
+                            sx={{ py: 1.5 }}
+                          >
+                            <ListItemIcon>
+                              <Checkbox
+                                checked={editingInvestments.includes(inv.id)}
+                                tabIndex={-1}
+                                disableRipple
+                              />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={
+                                <Stack
+                                  direction='row'
+                                  justifyContent='space-between'
+                                  alignItems='center'
+                                >
+                                  <Typography
+                                    variant='subtitle2'
+                                    sx={{
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {inv.investingEntity}
+                                  </Typography>
+                                  {inv.status && (
+                                    <Badge
+                                      text={inv.status.replace('_', ' ')}
+                                      tone={
+                                        inv.status === 'linked'
+                                          ? 'green'
+                                          : inv.status === 'in_progress'
+                                          ? 'amber'
+                                          : 'gray'
+                                      }
+                                    />
+                                  )}
+                                </Stack>
+                              }
+                              secondary={
+                                <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                                  <Typography variant='caption' color='text.secondary'>
+                                    {inv.fundName}
+                                  </Typography>
+                                  <Typography variant='caption' color='text.secondary'>
+                                    #{inv.id}
+                                  </Typography>
+                                </Stack>
+                              }
+                            />
+                          </ListItemButton>
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </Box>
+              </Card>
+            </Box>
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button
@@ -1478,289 +1534,6 @@ export const ProcessOverviewPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add Investments Modal */}
-      <Dialog
-        open={showAddInvestmentsModal}
-        onClose={() => {
-          setAddingInvestments([]);
-          setShowAddInvestmentsModal(false);
-        }}
-        maxWidth='md'
-        fullWidth
-      >
-        <DialogTitle>
-          Add Investments to Process
-          <Typography variant='caption' color='text.secondary' display='block'>
-            {selectedProcess.firmName}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 1 }}>
-            {getUnassignedInvestmentsForProcess().length === 0 ? (
-              <Typography
-                variant='body2'
-                color='text.secondary'
-                sx={{ py: 4, textAlign: 'center' }}
-              >
-                No unassigned investments available for this client.
-              </Typography>
-            ) : (
-              <Card sx={{ height: '400px', display: 'flex', flexDirection: 'column' }}>
-                <CardHeader
-                  title='Available Investments'
-                  subheader={`${addingInvestments.length} of ${
-                    getUnassignedInvestmentsForProcess().length
-                  } selected`}
-                  slotProps={{
-                    title: { variant: 'h6' },
-                    subheader: { variant: 'caption' },
-                  }}
-                />
-                <Box
-                  sx={{
-                    borderTop: 1,
-                    borderColor: 'divider',
-                  }}
-                />
-                <Box sx={{ flex: 1, overflow: 'auto' }}>
-                  <List disablePadding>
-                    {sortInvestments(
-                      getUnassignedInvestmentsForProcess(),
-                      'id',
-                      'asc',
-                    ).map((inv) => (
-                      <ListItem key={inv.id} disablePadding>
-                        <ListItemButton
-                          selected={addingInvestments.includes(inv.id)}
-                          onClick={() => {
-                            if (addingInvestments.includes(inv.id)) {
-                              setAddingInvestments(
-                                addingInvestments.filter((id) => id !== inv.id),
-                              );
-                            } else {
-                              setAddingInvestments([...addingInvestments, inv.id]);
-                            }
-                          }}
-                          sx={{ py: 1.5 }}
-                        >
-                          <ListItemIcon>
-                            <Checkbox
-                              checked={addingInvestments.includes(inv.id)}
-                              tabIndex={-1}
-                              disableRipple
-                            />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={
-                              <Stack
-                                direction='row'
-                                justifyContent='space-between'
-                                alignItems='center'
-                              >
-                                <Typography
-                                  variant='subtitle2'
-                                  sx={{
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {inv.investingEntity}
-                                </Typography>
-                                {inv.status && (
-                                  <Badge
-                                    text={inv.status.replace('_', ' ')}
-                                    tone={
-                                      inv.status === 'linked'
-                                        ? 'green'
-                                        : inv.status === 'in_progress'
-                                        ? 'amber'
-                                        : 'gray'
-                                    }
-                                  />
-                                )}
-                              </Stack>
-                            }
-                            secondary={
-                              <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                                <Typography variant='caption' color='text.secondary'>
-                                  {inv.fundName}
-                                </Typography>
-                                <Typography variant='caption' color='text.secondary'>
-                                  #{inv.id}
-                                </Typography>
-                              </Stack>
-                            }
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Box>
-              </Card>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setAddingInvestments([]);
-              setShowAddInvestmentsModal(false);
-            }}
-            color='inherit'
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveAddedInvestments}
-            variant='contained'
-            disabled={addingInvestments.length === 0}
-            startIcon={<AddIcon />}
-          >
-            Add Selected
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Remove Investments Modal */}
-      <Dialog
-        open={showRemoveInvestmentsModal}
-        onClose={() => {
-          setRemovingInvestments([]);
-          setShowRemoveInvestmentsModal(false);
-        }}
-        maxWidth='md'
-        fullWidth
-      >
-        <DialogTitle>
-          Remove Investments from Process
-          <Typography variant='caption' color='text.secondary' display='block'>
-            {selectedProcess.firmName}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 1 }}>
-            {processInvestments.length === 0 ? (
-              <Typography
-                variant='body2'
-                color='text.secondary'
-                sx={{ py: 4, textAlign: 'center' }}
-              >
-                No investments in this process to remove.
-              </Typography>
-            ) : (
-              <Card sx={{ height: '400px', display: 'flex', flexDirection: 'column' }}>
-                <CardHeader
-                  title='Select Investments to Remove'
-                  subheader={`${removingInvestments.length} of ${processInvestments.length} selected`}
-                  slotProps={{
-                    title: { variant: 'h6' },
-                    subheader: { variant: 'caption' },
-                  }}
-                />
-                <Box
-                  sx={{
-                    borderTop: 1,
-                    borderColor: 'divider',
-                  }}
-                />
-                <Box sx={{ flex: 1, overflow: 'auto' }}>
-                  <List disablePadding>
-                    {sortInvestments(processInvestments, null, null).map((inv) => (
-                      <ListItem key={inv.id} disablePadding>
-                        <ListItemButton
-                          selected={removingInvestments.includes(inv.id)}
-                          onClick={() => {
-                            if (removingInvestments.includes(inv.id)) {
-                              setRemovingInvestments(
-                                removingInvestments.filter((id) => id !== inv.id),
-                              );
-                            } else {
-                              setRemovingInvestments([...removingInvestments, inv.id]);
-                            }
-                          }}
-                          sx={{ py: 1.5 }}
-                        >
-                          <ListItemIcon>
-                            <Checkbox
-                              checked={removingInvestments.includes(inv.id)}
-                              tabIndex={-1}
-                              disableRipple
-                            />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={
-                              <Stack
-                                direction='row'
-                                justifyContent='space-between'
-                                alignItems='center'
-                              >
-                                <Typography
-                                  variant='subtitle2'
-                                  sx={{
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {inv.investingEntity}
-                                </Typography>
-                                {inv.status && (
-                                  <Badge
-                                    text={inv.status.replace('_', ' ')}
-                                    tone={
-                                      inv.status === 'linked'
-                                        ? 'green'
-                                        : inv.status === 'in_progress'
-                                        ? 'amber'
-                                        : 'gray'
-                                    }
-                                  />
-                                )}
-                              </Stack>
-                            }
-                            secondary={
-                              <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                                <Typography variant='caption' color='text.secondary'>
-                                  {inv.fundName}
-                                </Typography>
-                                <Typography variant='caption' color='text.secondary'>
-                                  #{inv.id}
-                                </Typography>
-                              </Stack>
-                            }
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Box>
-              </Card>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setRemovingInvestments([]);
-              setShowRemoveInvestmentsModal(false);
-            }}
-            color='inherit'
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveRemovedInvestments}
-            variant='contained'
-            color='error'
-            disabled={removingInvestments.length === 0}
-            startIcon={<RemoveIcon />}
-          >
-            Remove Selected
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       {/* Reply Modal */}
       <ReplyModal
         open={showReplyModal}
@@ -1768,6 +1541,15 @@ export const ProcessOverviewPage = () => {
         store={store}
         processId={processId || 0}
         onSendReply={handleSendFirmReply}
+      />
+
+      {/* Move Conversation Modal */}
+      <MoveConversationModal
+        open={showMoveConversationModal}
+        onClose={() => setShowMoveConversationModal(false)}
+        store={store}
+        currentProcessId={processId || 0}
+        onMoveConversations={handleMoveConversations}
       />
     </Container>
   );

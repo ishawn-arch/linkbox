@@ -10,7 +10,6 @@ export type FirmProcess = {
   id: number;
   firmName: string;
   clientId: string;
-  investmentIds: number[];
   convoIds: string[];
   roundIds: string[];
   createdAt: string;
@@ -20,7 +19,6 @@ export type InvestmentStatus = 'linked' | 'in_progress' | 'archived';
 export type Investment = {
   id: number;
   clientId: string;
-  firmProcessId: number | null;
   investingEntity: string;
   fundName: string;
   status: InvestmentStatus | null;
@@ -55,7 +53,6 @@ export type Round = {
   processId: number;
   label: string;
   sentAt: string;
-  investmentIds: number[];
   convoIds: string[];
 };
 
@@ -107,7 +104,6 @@ export function seedDemo(): Store {
     id: 1,
     firmName: 'Landmark Equity Partners',
     clientId: client1.id,
-    investmentIds: [],
     convoIds: [],
     roundIds: [],
     createdAt: daysAgoIso(30),
@@ -117,7 +113,6 @@ export function seedDemo(): Store {
     id: 2,
     firmName: 'Blackstone GSO',
     clientId: client2.id,
-    investmentIds: [],
     convoIds: [],
     roundIds: [],
     createdAt: daysAgoIso(20),
@@ -132,10 +127,9 @@ export function seedDemo(): Store {
     invs.push({
       id: 282700 + i,
       clientId: client1.id,
-      firmProcessId: p1.id,
       investingEntity: i % 2 === 0 ? 'Holte Living Trust' : 'IFC Advisors LP',
       fundName: i < 5 ? 'Landmark XVI' : 'Landmark Co-Invest A',
-      status: statuses[i % statuses.length], // Process investments have status
+      status: statuses[i % statuses.length], // Investments in conversations have status
       lastActivityAt: daysAgoIso(15 - i),
     });
   }
@@ -144,7 +138,6 @@ export function seedDemo(): Store {
     invs.push({
       id: 283000 + i,
       clientId: client2.id,
-      firmProcessId: p2.id,
       investingEntity: i % 2 === 0 ? 'Foothill Holdings LLC' : 'Cypress Family Trust',
       fundName: i < 6 ? 'GSO Capital Solutions III' : 'GSO Special Situations',
       status: statuses[(i + 1) % statuses.length],
@@ -152,13 +145,12 @@ export function seedDemo(): Store {
     });
   }
 
-  // Add some unassigned investments (available to be added to processes)
+  // Add some unassigned investments (available to be added to conversations)
   const unassignedInvs: Investment[] = [];
   for (let i = 0; i < 6; i++) {
     unassignedInvs.push({
       id: 290000 + i,
       clientId: client1.id,
-      firmProcessId: null, // Not assigned to any process
       investingEntity:
         i % 3 === 0
           ? 'Meridian Capital Partners'
@@ -166,7 +158,7 @@ export function seedDemo(): Store {
           ? 'Summit Investment Group'
           : 'Crosswind Holdings',
       fundName: i < 3 ? 'Opportunity Fund IV' : 'Growth Capital Fund II',
-      status: null, // No status when not assigned to a process
+      status: null, // No status when not assigned to any conversation
       lastActivityAt: daysAgoIso(20 - i),
     });
   }
@@ -174,10 +166,9 @@ export function seedDemo(): Store {
     unassignedInvs.push({
       id: 291000 + i,
       clientId: client2.id,
-      firmProcessId: null, // Not assigned to any process
       investingEntity: i % 2 === 0 ? 'Pinnacle Asset Management' : 'Ridgeline Partners',
       fundName: i < 2 ? 'Strategic Ventures Fund' : 'Capital Opportunities III',
-      status: null, // No status when not assigned to a process
+      status: null, // No status when not assigned to any conversation
       lastActivityAt: daysAgoIso(18 - i),
     });
   }
@@ -185,9 +176,21 @@ export function seedDemo(): Store {
   // Add unassigned investments to the main investments array
   invs.push(...unassignedInvs);
 
-  // Assign investments to processes
-  p1.investmentIds = invs.filter((x) => x.firmProcessId === p1.id).map((x) => x.id);
-  p2.investmentIds = invs.filter((x) => x.firmProcessId === p2.id).map((x) => x.id);
+  // Define which investments are actually referenced by conversations
+  // These are the only ones that should have a status
+  const conversationInvestmentIds = new Set([
+    // cv_1_m1 references these 6 from client1
+    282700, 282701, 282702, 282703, 282704, 282705,
+    // cv_2_m1 references these 5 from client2
+    283000, 283001, 283002, 283003, 283004,
+  ]);
+
+  // Set status to null for investments not referenced by any conversation
+  invs.forEach((inv) => {
+    if (!conversationInvestmentIds.has(inv.id)) {
+      inv.status = null;
+    }
+  });
 
   // Create some basic conversations with messages
   const convosArr: Convo[] = [
@@ -266,7 +269,6 @@ export function seedDemo(): Store {
     processId: p1.id,
     label: 'Round 1',
     sentAt: daysAgoIso(14),
-    investmentIds: p1.investmentIds.slice(0, 6),
     convoIds: ['cv_1_m1'],
   };
   const r1_p2: Round = {
@@ -274,7 +276,6 @@ export function seedDemo(): Store {
     processId: p2.id,
     label: 'Round 1',
     sentAt: daysAgoIso(12),
-    investmentIds: p2.investmentIds.slice(0, 5),
     convoIds: ['cv_2_m1'],
   };
 
