@@ -66,6 +66,15 @@ import {
   filterInvestmentsByStatus,
 } from '../utils/investments';
 
+// Utility function to get conversations for a specific investment
+function getInvestmentConversations(
+  processConvos: Convo[],
+  investmentId: number | null,
+): Convo[] {
+  if (!investmentId) return [];
+  return processConvos.filter((convo) => convo.investmentRefs.includes(investmentId));
+}
+
 export const ProcessOverviewPage = () => {
   const { id: processIdParam } = useParams<{ id: string }>();
   const processId = processIdParam ? parseInt(processIdParam, 10) : null;
@@ -73,6 +82,7 @@ export const ProcessOverviewPage = () => {
   const { store, updateStore, isLoading } = useDatabaseContext();
   const [detailMode, setDetailMode] = useState<DetailMode>('CONVERSATIONS');
   const [selectedConvoId, setSelectedConvoId] = useState<string | null>(null);
+  const [selectedInvestmentId, setSelectedInvestmentId] = useState<number | null>(null);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -565,6 +575,7 @@ export const ProcessOverviewPage = () => {
                 onClick={() => {
                   setDetailMode('CONVERSATIONS');
                   setSelectedConvoId(null);
+                  setSelectedInvestmentId(null);
                   setSelectedStatusFilter(null);
                 }}
                 sx={{
@@ -581,6 +592,7 @@ export const ProcessOverviewPage = () => {
                 onClick={() => {
                   setDetailMode('INVESTMENTS');
                   setSelectedConvoId(null);
+                  setSelectedInvestmentId(null);
                   setSelectedStatusFilter(null);
                   setSortColumn(null);
                   setSortDirection(null);
@@ -918,102 +930,231 @@ export const ProcessOverviewPage = () => {
       )}
 
       {detailMode === 'INVESTMENTS' && (
-        <Card>
-          <CardHeader
-            title={`Investments — ${selectedProcess.firmName}`}
-            slotProps={{
-              title: { variant: 'h6' },
-            }}
-          />
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <SortableTableCell
-                    column='id'
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSortColumn}
-                  >
-                    ID
-                  </SortableTableCell>
-                  <SortableTableCell
-                    column='entity'
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSortColumn}
-                  >
-                    Entity
-                  </SortableTableCell>
-                  <SortableTableCell
-                    column='fund'
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSortColumn}
-                  >
-                    Fund
-                  </SortableTableCell>
-                  <SortableTableCell
-                    column='status'
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSortColumn}
-                  >
-                    Status
-                  </SortableTableCell>
-                  <SortableTableCell
-                    column='lastActivity'
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSortColumn}
-                  >
-                    Last Activity
-                  </SortableTableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {getFilteredInvestments().map((inv) => (
-                  <TableRow key={inv.id} hover>
-                    <TableCell>
-                      <Typography variant='body2' fontFamily='monospace'>
-                        #{inv.id}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant='body2'>{inv.investingEntity}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant='body2'>{inv.fundName}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      {inv.status ? (
-                        <Badge
-                          text={inv.status.replace('_', ' ')}
-                          tone={
-                            inv.status === 'linked'
-                              ? 'green'
-                              : inv.status === 'in_progress'
-                              ? 'amber'
-                              : 'gray'
-                          }
-                        />
-                      ) : (
-                        <Typography variant='caption' color='text.secondary'>
-                          No Status
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={3}
+          justifyContent='space-between'
+        >
+          <Box sx={{ width: { xs: '100%', md: '75%' } }}>
+            <Card>
+              <CardHeader
+                title={`Investments — ${selectedProcess.firmName}`}
+                slotProps={{
+                  title: { variant: 'h6' },
+                }}
+              />
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <SortableTableCell
+                        column='id'
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={handleSortColumn}
+                      >
+                        ID
+                      </SortableTableCell>
+                      <SortableTableCell
+                        column='entity'
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={handleSortColumn}
+                      >
+                        Entity
+                      </SortableTableCell>
+                      <SortableTableCell
+                        column='fund'
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={handleSortColumn}
+                      >
+                        Fund
+                      </SortableTableCell>
+                      <SortableTableCell
+                        column='status'
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={handleSortColumn}
+                      >
+                        Status
+                      </SortableTableCell>
+                      <SortableTableCell
+                        column='lastActivity'
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={handleSortColumn}
+                      >
+                        Last Activity
+                      </SortableTableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {getFilteredInvestments().map((inv) => (
+                      <TableRow
+                        key={inv.id}
+                        hover
+                        selected={selectedInvestmentId === inv.id}
+                        onClick={() => {
+                          const newInvestmentId =
+                            selectedInvestmentId === inv.id ? null : inv.id;
+                          setSelectedInvestmentId(newInvestmentId);
+                        }}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        <TableCell>
+                          <Typography variant='body2' fontFamily='monospace'>
+                            #{inv.id}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant='body2'>{inv.investingEntity}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant='body2'>{inv.fundName}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          {inv.status ? (
+                            <Badge
+                              text={inv.status.replace('_', ' ')}
+                              tone={
+                                inv.status === 'linked'
+                                  ? 'green'
+                                  : inv.status === 'in_progress'
+                                  ? 'amber'
+                                  : 'gray'
+                              }
+                            />
+                          ) : (
+                            <Typography variant='caption' color='text.secondary'>
+                              No Status
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant='body2' color='text.secondary'>
+                            {fmtDate(inv.lastActivityAt)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Card>
+          </Box>
+
+          <Box sx={{ width: { xs: '100%', md: '25%' } }}>
+            <Card>
+              <CardHeader
+                title={
+                  selectedInvestmentId
+                    ? `Conversations for Investment #${selectedInvestmentId}`
+                    : 'Conversations'
+                }
+                slotProps={{
+                  title: { variant: 'h6' },
+                }}
+              />
+              <Box
+                sx={{
+                  borderTop: 1,
+                  borderColor: 'divider',
+                }}
+              />
+              <Box sx={{ maxHeight: '60vh', overflow: 'auto' }}>
+                {(() => {
+                  if (!selectedInvestmentId) {
+                    return (
+                      <Box sx={{ p: 3, textAlign: 'center' }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          Select an investment to view its conversations.
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant='body2' color='text.secondary'>
-                        {fmtDate(inv.lastActivityAt)}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
+                      </Box>
+                    );
+                  }
+
+                  const investmentConversations = getInvestmentConversations(
+                    processConvos,
+                    selectedInvestmentId,
+                  );
+
+                  if (investmentConversations.length === 0) {
+                    return (
+                      <Box sx={{ p: 3, textAlign: 'center' }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          No conversations associated with this investment.
+                        </Typography>
+                      </Box>
+                    );
+                  }
+
+                  return (
+                    <List disablePadding>
+                      {investmentConversations.map((convo) => (
+                        <ListItem key={convo.id} disablePadding>
+                          <ListItemButton
+                            onClick={() => {
+                              // Switch to conversations view and select this conversation
+                              setDetailMode('CONVERSATIONS');
+                              setSelectedConvoId(convo.id);
+                              setSelectedInvestmentId(null);
+                              setSelectedStatusFilter(null);
+                            }}
+                            sx={{
+                              opacity: convo.state === 'CLOSED' ? 0.6 : 1,
+                              py: 1.5,
+                            }}
+                          >
+                            <ListItemText
+                              primary={
+                                <Stack
+                                  direction='row'
+                                  justifyContent='space-between'
+                                  alignItems='center'
+                                >
+                                  <Typography
+                                    variant='subtitle2'
+                                    sx={{
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {convo.subject}
+                                  </Typography>
+                                  <Typography
+                                    variant='caption'
+                                    color='text.secondary'
+                                    sx={{ ml: 2, flexShrink: 0 }}
+                                  >
+                                    {fmtDate(convo.lastActivityAt)}
+                                  </Typography>
+                                </Stack>
+                              }
+                              secondary={
+                                <Stack
+                                  direction='row'
+                                  spacing={0.5}
+                                  sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}
+                                >
+                                  {stateBadge(convo.state)}
+                                  {convo.participants.map((p) => (
+                                    <Badge key={p} text={p} />
+                                  ))}
+                                </Stack>
+                              }
+                            />
+                          </ListItemButton>
+                        </ListItem>
+                      ))}
+                    </List>
+                  );
+                })()}
+              </Box>
+            </Card>
+          </Box>
+        </Stack>
       )}
 
       {/* New Conversation Modal */}
