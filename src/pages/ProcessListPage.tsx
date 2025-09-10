@@ -36,8 +36,10 @@ export const ProcessTable = ({ store }: { store: Store }) => {
 
   function processCounts(processId: number) {
     const invs = getProcessInvestments(store, processId);
-    const total = invs.length;
-    const linked = invs.filter((i) => i.status === 'linked').length;
+    // Exclude archived investments from the total count
+    const activeInvs = invs.filter((i) => i.status !== 'archived');
+    const total = activeInvs.length;
+    const linked = activeInvs.filter((i) => i.status === 'linked').length;
     const unlinked = total - linked;
     return { total, linked, unlinked };
   }
