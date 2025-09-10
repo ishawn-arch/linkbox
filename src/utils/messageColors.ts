@@ -69,7 +69,7 @@ export function getFirmEmailColor(
 /**
  * Check if an email should be treated as a firm email (not OPS/internal)
  */
-export function isFirmEmail(email: string, fromRole: string): boolean {
+export function isFirmEmail(fromRole: string): boolean {
   // Only apply firm colors to incoming emails from ADMIN, FUND, or CLIENT roles
   return fromRole === 'ADMIN' || fromRole === 'FUND' || fromRole === 'CLIENT';
 }

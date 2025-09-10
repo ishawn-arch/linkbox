@@ -16,7 +16,7 @@ export const MessageCard = ({ msg }: MessageCardProps) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
   const emailAddress = extractEmailAddress(msg.from);
-  const isFromFirm = !isOut && isFirmEmail(emailAddress, msg.fromRole);
+  const isFromFirm = !isOut && isFirmEmail(msg.fromRole);
 
   // Get distinct color for firm emails based on current theme
   const firmColors = isFromFirm ? getFirmEmailColor(emailAddress, isDarkMode) : null;
