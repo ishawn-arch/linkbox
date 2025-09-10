@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 import type { Store, Convo } from '../../utils/db';
-import { fmtDate } from '../../utils/db';
+import { fmtDate, sortConversationsByPriority } from '../../utils/db';
 import { Badge } from '../common/Badge';
 
 export interface ReplyModalProps {
@@ -40,13 +40,11 @@ export const ReplyModal = ({
   // Get conversations for this process
   const processConversations =
     store && processId
-      ? store.processes[processId]?.convoIds
-          .map((id) => store.convos[id])
-          .filter(Boolean)
-          .sort(
-            (a, b) =>
-              new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
-          ) || []
+      ? sortConversationsByPriority(
+          store.processes[processId]?.convoIds
+            .map((id) => store.convos[id])
+            .filter(Boolean) || [],
+        )
       : [];
 
   const selectedConversation = selectedConversationId
@@ -124,9 +122,6 @@ export const ReplyModal = ({
                 Conversation Details
               </Typography>
               <Stack direction='row' spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-                {selectedConversation.state === 'NO_RESPONSE' && (
-                  <Badge text='no response' tone='gray' />
-                )}
                 {selectedConversation.state === 'PENDING_FUND' && (
                   <Badge text='pending fund reply' tone='blue' />
                 )}
@@ -136,9 +131,11 @@ export const ReplyModal = ({
                 {selectedConversation.state === 'CLOSED' && (
                   <Badge text='closed' tone='gray' />
                 )}
-                {selectedConversation.participants.map((p) => (
-                  <Badge key={p} text={p} />
-                ))}
+                {selectedConversation.participants
+                  .filter((p) => p !== 'ADMIN')
+                  .map((p) => (
+                    <Badge key={p} text={p} />
+                  ))}
               </Stack>
 
               <Typography variant='body2' color='text.secondary'>

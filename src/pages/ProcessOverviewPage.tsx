@@ -42,7 +42,13 @@ import {
   SwapHoriz as MoveIcon,
 } from '@mui/icons-material';
 import type { DetailMode, ConvoState, EmailMsg, Convo } from '../utils/db';
-import { fmtDate, randBase32, emailAliasForOps } from '../utils/db';
+import {
+  fmtDate,
+  randBase32,
+  emailAliasForOps,
+  getConversationState,
+  sortConversationsByPriority,
+} from '../utils/db';
 import { useDatabaseContext } from '../contexts/DatabaseContext';
 
 // Component imports
@@ -124,12 +130,9 @@ export const ProcessOverviewPage = () => {
   }
 
   const clientName = store.clients[selectedProcess.clientId].name;
-  const processConvos = selectedProcess.convoIds
-    .map((id) => store.convos[id])
-    .sort(
-      (a, b) =>
-        new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
-    );
+  const processConvos = sortConversationsByPriority(
+    selectedProcess.convoIds.map((id) => store.convos[id]),
+  );
   const processInvestments = getProcessInvestments(store, processId);
 
   function handleSortColumn(column: SortColumn) {
@@ -140,19 +143,12 @@ export const ProcessOverviewPage = () => {
 
   function stateBadge(state: ConvoState) {
     switch (state) {
-      case 'NO_RESPONSE':
-        return <Badge text='no response' tone='gray' />;
       case 'PENDING_FUND':
         return <Badge text='pending fund reply' tone='blue' />;
       case 'PENDING_ARCH':
         return <Badge text='arch response needed' tone='amber' />;
       case 'CLOSED':
-        return (
-          <Stack direction='row' spacing={0.5}>
-            <Badge text='closed' tone='gray' />
-            <Badge text='no response' tone='gray' />
-          </Stack>
-        );
+        return <Badge text='closed' tone='gray' />;
       default:
         return null;
     }
@@ -312,11 +308,18 @@ export const ProcessOverviewPage = () => {
       investmentRefs: editingInvestments,
     };
 
+    // Update conversation state based on new investment assignments
+    const newState = getConversationState(updatedConvo, store);
+    const finalUpdatedConvo = {
+      ...updatedConvo,
+      state: newState,
+    };
+
     const updatedStore = {
       ...store,
       convos: {
         ...store.convos,
-        [selectedConvoId]: updatedConvo,
+        [selectedConvoId]: finalUpdatedConvo,
       },
     };
 
@@ -346,9 +349,25 @@ export const ProcessOverviewPage = () => {
       },
     };
 
+    // Update conversation states based on new investment status
+    const updatedConvos = { ...store.convos };
+    Object.values(store.convos).forEach((convo) => {
+      if (convo.investmentRefs.includes(investmentId)) {
+        const tempStore = { ...store, investments: updatedInvestments };
+        const newState = getConversationState(convo, tempStore);
+        if (newState !== convo.state) {
+          updatedConvos[convo.id] = {
+            ...convo,
+            state: newState,
+          };
+        }
+      }
+    });
+
     const updatedStore = {
       ...store,
       investments: updatedInvestments,
+      convos: updatedConvos,
     };
 
     updateStore(updatedStore);
@@ -647,9 +666,11 @@ export const ProcessOverviewPage = () => {
                               sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}
                             >
                               {stateBadge(cv.state)}
-                              {cv.participants.map((p) => (
-                                <Badge key={p} text={p} />
-                              ))}
+                              {cv.participants
+                                .filter((p) => p !== 'ADMIN')
+                                .map((p) => (
+                                  <Badge key={p} text={p} />
+                                ))}
                             </Stack>
                           }
                         />
@@ -698,9 +719,11 @@ export const ProcessOverviewPage = () => {
                   <Stack spacing={3}>
                     <Stack direction='row' spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                       {stateBadge(store.convos[selectedConvoId].state)}
-                      {store.convos[selectedConvoId].participants.map((p) => (
-                        <Badge key={p} text={p} />
-                      ))}
+                      {store.convos[selectedConvoId].participants
+                        .filter((p) => p !== 'ADMIN')
+                        .map((p) => (
+                          <Badge key={p} text={p} />
+                        ))}
                     </Stack>
 
                     {showCompose && (
@@ -1079,9 +1102,11 @@ export const ProcessOverviewPage = () => {
                                   sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}
                                 >
                                   {stateBadge(convo.state)}
-                                  {convo.participants.map((p) => (
-                                    <Badge key={p} text={p} />
-                                  ))}
+                                  {convo.participants
+                                    .filter((p) => p !== 'ADMIN')
+                                    .map((p) => (
+                                      <Badge key={p} text={p} />
+                                    ))}
                                 </Stack>
                               }
                             />

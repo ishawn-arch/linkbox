@@ -23,7 +23,7 @@ import {
 } from '@mui/material';
 import { SwapHoriz as MoveIcon } from '@mui/icons-material';
 import type { Store, Convo } from '../../utils/db';
-import { fmtDate } from '../../utils/db';
+import { fmtDate, sortConversationsByPriority } from '../../utils/db';
 import { Badge } from '../common/Badge';
 
 export interface MoveConversationModalProps {
@@ -45,13 +45,11 @@ export const MoveConversationModal = ({
   const [targetProcessId, setTargetProcessId] = useState<number | ''>('');
 
   const currentProcess = store?.processes[currentProcessId];
-  const processConversations =
-    (
-      currentProcess?.convoIds.map((id) => store?.convos[id]).filter(Boolean) as Convo[]
-    )?.sort(
-      (a, b) =>
-        new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
-    ) || [];
+  const processConversations = sortConversationsByPriority(
+    (currentProcess?.convoIds
+      .map((id) => store?.convos[id])
+      .filter(Boolean) as Convo[]) || [],
+  );
 
   // Get all other processes (excluding current one) as potential targets
   const targetProcesses = store
@@ -88,8 +86,6 @@ export const MoveConversationModal = ({
 
   const getConversationStateBadge = (state: Convo['state']) => {
     switch (state) {
-      case 'NO_RESPONSE':
-        return <Badge text='no response' tone='gray' />;
       case 'PENDING_FUND':
         return <Badge text='pending fund reply' tone='blue' />;
       case 'PENDING_ARCH':
@@ -229,9 +225,11 @@ export const MoveConversationModal = ({
                                   sx={{ flexWrap: 'wrap', gap: 0.5 }}
                                 >
                                   {getConversationStateBadge(convo.state)}
-                                  {convo.participants.map((p) => (
-                                    <Badge key={p} text={p} />
-                                  ))}
+                                  {convo.participants
+                                    .filter((p) => p !== 'ADMIN')
+                                    .map((p) => (
+                                      <Badge key={p} text={p} />
+                                    ))}
                                 </Stack>
                                 <Typography variant='caption' color='text.secondary'>
                                   {convo.messageCount} messages •{' '}
