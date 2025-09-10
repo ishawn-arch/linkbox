@@ -168,6 +168,7 @@ export const ProcessOverviewPage = () => {
     cc: string[],
     bcc: string[],
     message: string,
+    _subject?: string,
     from?: string,
   ) {
     if (!selectedConvoId || !store) {

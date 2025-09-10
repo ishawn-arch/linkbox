@@ -61,6 +61,7 @@ export const ReplyModal = ({ open, onClose, store, onSendReply }: ReplyModalProp
     _cc: string[],
     _bcc: string[],
     message: string,
+    _subject?: string,
     from?: string,
   ) => {
     if (!selectedConversationId) {

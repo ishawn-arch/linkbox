@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Box,
   Button,
@@ -15,21 +16,26 @@ import {
   ListItemIcon,
   ListItemText,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
+import { Add as AddIcon } from '@mui/icons-material';
 import type { Store, Investment } from '../../utils/db';
 import { Badge } from '../common/Badge';
 import { sortInvestmentsByDefault } from '../../utils/investments';
 import { EmailComposer } from '../common/EmailComposer';
 
-export interface NewConversationModalProps {
+export interface NewProcessModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: () => void;
+  fundName: string;
+  onFundNameChange: (value: string) => void;
+  clientName: string;
+  onClientNameChange: (value: string) => void;
   selectedInvestments: number[];
   onSelectedInvestmentsChange: (investments: number[]) => void;
-  processInvestments: Investment[];
+  availableInvestments: Investment[];
   store: Store | null;
   onEmailSend: (
     to: string,
@@ -42,20 +48,36 @@ export interface NewConversationModalProps {
   onSubjectChange: (subject: string) => void;
 }
 
-export const NewConversationModal = ({
+export const NewProcessModal = ({
   open,
   onClose,
   onSubmit,
+  fundName,
+  onFundNameChange,
+  clientName,
+  onClientNameChange,
   selectedInvestments,
   onSelectedInvestmentsChange,
-  processInvestments,
+  availableInvestments,
   store,
   onEmailSend,
   subject,
   onSubjectChange,
-}: NewConversationModalProps) => {
+}: NewProcessModalProps) => {
+  // Local state for email data
+  const [emailTo, setEmailTo] = useState<string>('');
+  const [emailCc, setEmailCc] = useState<string[]>([]);
+  const [emailBcc, setEmailBcc] = useState<string[]>([]);
+  const [emailMessage, setEmailMessage] = useState<string>('');
+
   const handleClose = () => {
+    onFundNameChange('');
+    onClientNameChange('');
     onSelectedInvestmentsChange([]);
+    setEmailTo('');
+    setEmailCc([]);
+    setEmailBcc([]);
+    setEmailMessage('');
     onClose();
   };
 
@@ -73,46 +95,87 @@ export const NewConversationModal = ({
     onSelectedInvestmentsChange(selectedInvestments.filter((id) => id !== investmentId));
   };
 
-  const isSubmitDisabled = false; // Let EmailComposer handle validation
+  const handleSubmit = () => {
+    if (emailTo.trim() && emailMessage.trim()) {
+      onEmailSend(emailTo, emailCc, emailBcc, emailMessage, subject);
+    }
+  };
+
+  const isSubmitDisabled =
+    !fundName.trim() || !clientName.trim() || !emailTo.trim() || !emailMessage.trim();
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth='lg' fullWidth>
-      <DialogTitle>New Conversation</DialogTitle>
+      <DialogTitle>Create New Process</DialogTitle>
       <DialogContent>
-        <Stack direction='row' spacing={3} sx={{ mt: 1, height: '500px' }}>
+        <Stack direction='row' spacing={3} sx={{ mt: 1, height: '600px' }}>
           {/* Left side - Form */}
-          <Box sx={{ flex: '1', minWidth: '300px' }}>
+          <Box sx={{ flex: '1', minWidth: '350px' }}>
             <Stack spacing={2}>
-              <EmailComposer
-                conversation={null}
-                onSend={onEmailSend}
-                placeholder='Type your message...'
-                showSendButton={false}
-                showSubject={true}
-                initialSubject={subject}
-                onSubjectChange={onSubjectChange}
+              <TextField
+                label='Fund Name'
+                placeholder='Enter fund name'
+                value={fundName}
+                onChange={(e) => onFundNameChange(e.target.value)}
+                fullWidth
+                variant='outlined'
+                size='small'
               />
 
-              {selectedInvestments.length > 0 && (
-                <Box>
-                  <Typography variant='subtitle2' gutterBottom color='text.secondary'>
-                    Selected Investments ({selectedInvestments.length})
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selectedInvestments.map((investmentId) => {
-                      const investment = store?.investments[investmentId];
-                      return (
-                        <Chip
-                          key={investmentId}
-                          label={`#${investmentId} - ${investment?.investingEntity}`}
-                          size='small'
-                          onDelete={() => handleRemoveInvestment(investmentId)}
-                        />
-                      );
-                    })}
+              <TextField
+                label='Client Name'
+                placeholder='Enter client name'
+                value={clientName}
+                onChange={(e) => onClientNameChange(e.target.value)}
+                fullWidth
+                variant='outlined'
+                size='small'
+              />
+
+              <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+                <Typography variant='subtitle2' gutterBottom color='text.secondary'>
+                  Initial Conversation Details
+                </Typography>
+
+                <EmailComposer
+                  conversation={null}
+                  onSend={() => {}} // Not used since showSendButton is false
+                  placeholder='Type your initial message...'
+                  showSendButton={false}
+                  showSubject={true}
+                  initialSubject={subject}
+                  onSubjectChange={onSubjectChange}
+                  controlledTo={emailTo}
+                  onToChange={setEmailTo}
+                  controlledMessage={emailMessage}
+                  onMessageChange={setEmailMessage}
+                  controlledCc={emailCc}
+                  onCcChange={setEmailCc}
+                  controlledBcc={emailBcc}
+                  onBccChange={setEmailBcc}
+                />
+
+                {selectedInvestments.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant='subtitle2' gutterBottom color='text.secondary'>
+                      Selected Investments ({selectedInvestments.length})
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selectedInvestments.map((investmentId) => {
+                        const investment = store?.investments[investmentId];
+                        return (
+                          <Chip
+                            key={investmentId}
+                            label={`#${investmentId} - ${investment?.investingEntity}`}
+                            size='small'
+                            onDelete={() => handleRemoveInvestment(investmentId)}
+                          />
+                        );
+                      })}
+                    </Box>
                   </Box>
-                </Box>
-              )}
+                )}
+              </Box>
             </Stack>
           </Box>
 
@@ -121,7 +184,7 @@ export const NewConversationModal = ({
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <CardHeader
                 title='Select Investments'
-                subheader={`${selectedInvestments.length} of ${processInvestments.length} selected`}
+                subheader={`${selectedInvestments.length} of ${availableInvestments.length} selected`}
                 slotProps={{
                   title: { variant: 'h6' },
                   subheader: { variant: 'caption' },
@@ -135,7 +198,7 @@ export const NewConversationModal = ({
               />
               <Box sx={{ flex: 1, overflow: 'auto' }}>
                 <List disablePadding>
-                  {sortInvestmentsByDefault(processInvestments).map((inv) => (
+                  {sortInvestmentsByDefault(availableInvestments).map((inv) => (
                     <ListItem key={inv.id} disablePadding>
                       <ListItemButton
                         selected={selectedInvestments.includes(inv.id)}
@@ -205,12 +268,12 @@ export const NewConversationModal = ({
           Cancel
         </Button>
         <Button
-          onClick={onSubmit}
+          onClick={handleSubmit}
           variant='contained'
           disabled={isSubmitDisabled}
-          startIcon={<SendIcon />}
+          startIcon={<AddIcon />}
         >
-          Send
+          Create Process & Send
         </Button>
       </DialogActions>
     </Dialog>

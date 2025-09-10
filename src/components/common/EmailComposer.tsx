@@ -18,6 +18,7 @@ export interface EmailComposerProps {
     cc: string[],
     bcc: string[],
     message: string,
+    subject?: string,
     from?: string,
   ) => void;
   placeholder?: string;
@@ -25,6 +26,18 @@ export interface EmailComposerProps {
   showSendButton?: boolean;
   onKeyDown?: (e: React.KeyboardEvent) => void;
   mode?: 'outgoing' | 'incoming'; // outgoing = To field (default), incoming = From field
+  showSubject?: boolean;
+  initialSubject?: string;
+  onSubjectChange?: (subject: string) => void;
+  // Controlled props for external state management
+  controlledTo?: string;
+  onToChange?: (to: string) => void;
+  controlledMessage?: string;
+  onMessageChange?: (message: string) => void;
+  controlledCc?: string[];
+  onCcChange?: (cc: string[]) => void;
+  controlledBcc?: string[];
+  onBccChange?: (bcc: string[]) => void;
 }
 
 export const EmailComposer = ({
@@ -35,12 +48,35 @@ export const EmailComposer = ({
   showSendButton = true,
   onKeyDown,
   mode = 'outgoing',
+  showSubject = false,
+  initialSubject = '',
+  onSubjectChange,
+  controlledTo,
+  onToChange,
+  controlledMessage,
+  onMessageChange,
+  controlledCc,
+  onCcChange,
+  controlledBcc,
+  onBccChange,
 }: EmailComposerProps) => {
-  const [message, setMessage] = useState<string>('');
-  const [selectedToEmail, setSelectedToEmail] = useState<string>('');
-  const [selectedCcEmails, setSelectedCcEmails] = useState<string[]>([]);
-  const [selectedBccEmails, setSelectedBccEmails] = useState<string[]>([]);
+  const [message, setMessage] = useState<string>(controlledMessage || '');
+  const [subject, setSubject] = useState<string>(initialSubject);
+  const [selectedToEmail, setSelectedToEmail] = useState<string>(controlledTo || '');
+  const [selectedCcEmails, setSelectedCcEmails] = useState<string[]>(controlledCc || []);
+  const [selectedBccEmails, setSelectedBccEmails] = useState<string[]>(
+    controlledBcc || [],
+  );
   const [hasUserInteractedWithTo, setHasUserInteractedWithTo] = useState<boolean>(false);
+
+  // Use controlled values if provided
+  const actualMessage = controlledMessage !== undefined ? controlledMessage : message;
+  const actualSelectedToEmail =
+    controlledTo !== undefined ? controlledTo : selectedToEmail;
+  const actualSelectedCcEmails =
+    controlledCc !== undefined ? controlledCc : selectedCcEmails;
+  const actualSelectedBccEmails =
+    controlledBcc !== undefined ? controlledBcc : selectedBccEmails;
 
   // Get email options for autocomplete
   const emailOptions = useMemo(() => {
@@ -50,36 +86,46 @@ export const EmailComposer = ({
 
   // Get filtered options for primary field (excludes CC and BCC emails)
   const primaryEmailOptions = useMemo(() => {
-    const excludedEmails = [...selectedCcEmails, ...selectedBccEmails];
+    const excludedEmails = [...actualSelectedCcEmails, ...actualSelectedBccEmails];
     return emailOptions.filter((option) => !excludedEmails.includes(option.email));
-  }, [emailOptions, selectedCcEmails, selectedBccEmails]);
+  }, [emailOptions, actualSelectedCcEmails, actualSelectedBccEmails]);
 
   // Get filtered options for CC field (excludes primary, BCC, and already selected CC emails)
   const ccEmailOptions = useMemo(() => {
-    const excludedEmails = selectedToEmail
-      ? [selectedToEmail, ...selectedBccEmails, ...selectedCcEmails]
-      : [...selectedBccEmails, ...selectedCcEmails];
+    const excludedEmails = actualSelectedToEmail
+      ? [actualSelectedToEmail, ...actualSelectedBccEmails, ...actualSelectedCcEmails]
+      : [...actualSelectedBccEmails, ...actualSelectedCcEmails];
     return emailOptions.filter((option) => !excludedEmails.includes(option.email));
-  }, [emailOptions, selectedToEmail, selectedBccEmails, selectedCcEmails]);
+  }, [
+    emailOptions,
+    actualSelectedToEmail,
+    actualSelectedBccEmails,
+    actualSelectedCcEmails,
+  ]);
 
   // Get filtered options for BCC field (excludes primary, CC, and already selected BCC emails)
   const bccEmailOptions = useMemo(() => {
-    const excludedEmails = selectedToEmail
-      ? [selectedToEmail, ...selectedCcEmails, ...selectedBccEmails]
-      : [...selectedCcEmails, ...selectedBccEmails];
+    const excludedEmails = actualSelectedToEmail
+      ? [actualSelectedToEmail, ...actualSelectedCcEmails, ...actualSelectedBccEmails]
+      : [...actualSelectedCcEmails, ...actualSelectedBccEmails];
     return emailOptions.filter((option) => !excludedEmails.includes(option.email));
-  }, [emailOptions, selectedToEmail, selectedCcEmails, selectedBccEmails]);
+  }, [
+    emailOptions,
+    actualSelectedToEmail,
+    actualSelectedCcEmails,
+    actualSelectedBccEmails,
+  ]);
 
   // Auto-select the only email option if there's exactly one (only if user hasn't manually interacted)
   useEffect(() => {
-    if (!hasUserInteractedWithTo) {
+    if (!hasUserInteractedWithTo && controlledTo === undefined) {
       if (primaryEmailOptions.length === 1 && !selectedToEmail) {
         setSelectedToEmail(primaryEmailOptions[0].email);
       } else if (primaryEmailOptions.length === 0) {
         setSelectedToEmail('');
       }
     }
-  }, [primaryEmailOptions, selectedToEmail, hasUserInteractedWithTo]);
+  }, [primaryEmailOptions, selectedToEmail, hasUserInteractedWithTo, controlledTo]);
 
   // Reset email fields when conversation changes
   useEffect(() => {
@@ -87,11 +133,19 @@ export const EmailComposer = ({
     setSelectedCcEmails([]);
     setSelectedBccEmails([]);
     setMessage('');
+    setSubject(initialSubject);
     setHasUserInteractedWithTo(false);
-  }, [conversation]);
+  }, [conversation, initialSubject]);
+
+  // Handle subject change callback
+  useEffect(() => {
+    if (onSubjectChange) {
+      onSubjectChange(subject);
+    }
+  }, [subject, onSubjectChange]);
 
   const handleSend = () => {
-    if (!selectedToEmail || !message.trim()) {
+    if (!actualSelectedToEmail || !actualMessage.trim()) {
       return;
     }
 
@@ -99,21 +153,29 @@ export const EmailComposer = ({
       // For incoming mode: From field is selectedToEmail, To field is conversation.aliasEmail
       onSend(
         conversation.aliasEmail,
-        selectedCcEmails,
-        selectedBccEmails,
-        message.trim(),
-        selectedToEmail,
+        actualSelectedCcEmails,
+        actualSelectedBccEmails,
+        actualMessage.trim(),
+        showSubject ? subject.trim() : undefined,
+        actualSelectedToEmail,
       );
     } else {
       // For outgoing mode: To field is selectedToEmail, From field is handled by parent
-      onSend(selectedToEmail, selectedCcEmails, selectedBccEmails, message.trim());
+      onSend(
+        actualSelectedToEmail,
+        actualSelectedCcEmails,
+        actualSelectedBccEmails,
+        actualMessage.trim(),
+        showSubject ? subject.trim() : undefined,
+      );
     }
 
-    // Clear form after sending
-    setMessage('');
-    setSelectedToEmail('');
-    setSelectedCcEmails([]);
-    setSelectedBccEmails([]);
+    // Clear form after sending (only if not controlled)
+    if (controlledMessage === undefined) setMessage('');
+    if (controlledTo === undefined) setSelectedToEmail('');
+    if (controlledCc === undefined) setSelectedCcEmails([]);
+    if (controlledBcc === undefined) setSelectedBccEmails([]);
+    setSubject(initialSubject);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -123,13 +185,13 @@ export const EmailComposer = ({
 
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
-      if (selectedToEmail && message.trim()) {
+      if (actualSelectedToEmail && actualMessage.trim()) {
         handleSend();
       }
     }
   };
 
-  const canSend = selectedToEmail && message.trim();
+  const canSend = actualSelectedToEmail && actualMessage.trim();
   const isIncomingMode = mode === 'incoming';
   const primaryFieldLabel = isIncomingMode ? 'From' : 'Send To';
   const primaryFieldPlaceholder = isIncomingMode
@@ -154,21 +216,41 @@ export const EmailComposer = ({
         />
       )}
 
+      {/* Subject Field */}
+      {showSubject && (
+        <TextField
+          label='Subject'
+          placeholder='Enter subject line'
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          variant='outlined'
+          size='small'
+          disabled={disabled}
+          fullWidth
+        />
+      )}
+
       {/* Primary Email Selection (To for outgoing, From for incoming) */}
       <Autocomplete
         freeSolo
-        value={selectedToEmail}
+        value={actualSelectedToEmail}
         onChange={(_, newValue) => {
           setHasUserInteractedWithTo(true);
-          if (typeof newValue === 'string') {
-            setSelectedToEmail(newValue);
-          } else if (newValue && typeof newValue === 'object') {
-            setSelectedToEmail(newValue.email);
+          const emailValue =
+            typeof newValue === 'string' ? newValue : newValue?.email || '';
+          if (controlledTo !== undefined && onToChange) {
+            onToChange(emailValue);
+          } else {
+            setSelectedToEmail(emailValue);
           }
         }}
         onInputChange={(_, newInputValue) => {
           setHasUserInteractedWithTo(true);
-          setSelectedToEmail(newInputValue);
+          if (controlledTo !== undefined && onToChange) {
+            onToChange(newInputValue);
+          } else {
+            setSelectedToEmail(newInputValue);
+          }
         }}
         options={primaryEmailOptions}
         getOptionLabel={(option) => {
@@ -220,7 +302,7 @@ export const EmailComposer = ({
         selectOnFocus
         clearOnBlur
         handleHomeEndKeys
-        value={selectedCcEmails}
+        value={actualSelectedCcEmails}
         onChange={(_, newValue) => {
           const emails = newValue.map((val) => {
             if (typeof val === 'string') return val;
@@ -228,7 +310,11 @@ export const EmailComposer = ({
           });
           // Remove duplicates within CC field
           const uniqueEmails = [...new Set(emails)];
-          setSelectedCcEmails(uniqueEmails);
+          if (controlledCc !== undefined && onCcChange) {
+            onCcChange(uniqueEmails);
+          } else {
+            setSelectedCcEmails(uniqueEmails);
+          }
         }}
         options={ccEmailOptions}
         filterOptions={(options, params) => {
@@ -300,7 +386,7 @@ export const EmailComposer = ({
         selectOnFocus
         clearOnBlur
         handleHomeEndKeys
-        value={selectedBccEmails}
+        value={actualSelectedBccEmails}
         onChange={(_, newValue) => {
           const emails = newValue.map((val) => {
             if (typeof val === 'string') return val;
@@ -308,7 +394,11 @@ export const EmailComposer = ({
           });
           // Remove duplicates within BCC field
           const uniqueEmails = [...new Set(emails)];
-          setSelectedBccEmails(uniqueEmails);
+          if (controlledBcc !== undefined && onBccChange) {
+            onBccChange(uniqueEmails);
+          } else {
+            setSelectedBccEmails(uniqueEmails);
+          }
         }}
         options={bccEmailOptions}
         filterOptions={(options, params) => {
@@ -380,8 +470,15 @@ export const EmailComposer = ({
           multiline
           rows={3}
           placeholder={placeholder}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          value={actualMessage}
+          onChange={(e) => {
+            const newMessage = e.target.value;
+            if (controlledMessage !== undefined && onMessageChange) {
+              onMessageChange(newMessage);
+            } else {
+              setMessage(newMessage);
+            }
+          }}
           onKeyDown={handleKeyDown}
           variant='outlined'
           size='small'
@@ -400,28 +497,28 @@ export const EmailComposer = ({
       </Stack>
 
       {/* Recipient Summary */}
-      {(selectedToEmail ||
-        selectedCcEmails.length > 0 ||
-        selectedBccEmails.length > 0) && (
+      {(actualSelectedToEmail ||
+        actualSelectedCcEmails.length > 0 ||
+        actualSelectedBccEmails.length > 0) && (
         <Box>
           <Typography variant='caption' color='text.secondary'>
-            {isIncomingMode && selectedToEmail && `From: ${selectedToEmail}`}
+            {isIncomingMode && actualSelectedToEmail && `From: ${actualSelectedToEmail}`}
             {isIncomingMode && conversation && ` • To: ${conversation.aliasEmail}`}
-            {!isIncomingMode && selectedToEmail && `To: ${selectedToEmail}`}
-            {selectedCcEmails.length > 0 && (
+            {!isIncomingMode && actualSelectedToEmail && `To: ${actualSelectedToEmail}`}
+            {actualSelectedCcEmails.length > 0 && (
               <span>
-                {selectedToEmail || (isIncomingMode && conversation) ? ' • ' : ''}CC:{' '}
-                {selectedCcEmails.join(', ')}
+                {actualSelectedToEmail || (isIncomingMode && conversation) ? ' • ' : ''}
+                CC: {actualSelectedCcEmails.join(', ')}
               </span>
             )}
-            {selectedBccEmails.length > 0 && (
+            {actualSelectedBccEmails.length > 0 && (
               <span>
-                {selectedToEmail ||
-                selectedCcEmails.length > 0 ||
+                {actualSelectedToEmail ||
+                actualSelectedCcEmails.length > 0 ||
                 (isIncomingMode && conversation)
                   ? ' • '
                   : ''}
-                BCC: {selectedBccEmails.join(', ')}
+                BCC: {actualSelectedBccEmails.join(', ')}
               </span>
             )}
           </Typography>
