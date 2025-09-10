@@ -13,7 +13,6 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
 import type { Store } from '../../utils/db';
 import { fmtDate, sortConversationsByPriority } from '../../utils/db';
 import { EmailComposer } from '../common/EmailComposer';
@@ -22,7 +21,6 @@ export interface ReplyModalProps {
   open: boolean;
   onClose: () => void;
   store: Store | null;
-  processId: number;
   onSendReply: (
     conversationId: string,
     message: string,
@@ -31,21 +29,19 @@ export interface ReplyModalProps {
   ) => void;
 }
 
-export const ReplyModal = ({
-  open,
-  onClose,
-  store,
-  processId,
-  onSendReply,
-}: ReplyModalProps) => {
+export const ReplyModal = ({ open, onClose, store, onSendReply }: ReplyModalProps) => {
+  const [selectedProcessId, setSelectedProcessId] = useState<string>('');
   const [selectedConversationId, setSelectedConversationId] = useState<string>('');
 
-  // Get conversations for this process
+  // Get all processes
+  const processes = store ? Object.values(store.processes) : [];
+
+  // Get conversations for selected process
   const processConversations =
-    store && processId
+    store && selectedProcessId
       ? sortConversationsByPriority(
-          store.processes[processId]?.convoIds
-            .map((id) => store.convos[id])
+          store.processes[Number(selectedProcessId)]?.convoIds
+            .map((id: string) => store.convos[id])
             .filter(Boolean) || [],
         )
       : [];
@@ -55,6 +51,7 @@ export const ReplyModal = ({
     : null;
 
   const handleClose = () => {
+    setSelectedProcessId('');
     setSelectedConversationId('');
     onClose();
   };
@@ -74,6 +71,7 @@ export const ReplyModal = ({
     onSendReply(selectedConversationId, message, to, from);
 
     // Clear form and close modal
+    setSelectedProcessId('');
     setSelectedConversationId('');
     onClose();
   };
@@ -83,8 +81,34 @@ export const ReplyModal = ({
       <DialogTitle>Send Reply from Firm</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          {/* Conversation Selection */}
+          {/* Process Selection */}
           <FormControl fullWidth>
+            <InputLabel>Select Process</InputLabel>
+            <Select
+              value={selectedProcessId}
+              label='Select Process'
+              onChange={(e) => {
+                setSelectedProcessId(e.target.value);
+                setSelectedConversationId(''); // Reset conversation selection
+              }}
+            >
+              {processes.map((process) => (
+                <MenuItem key={process.id} value={process.id}>
+                  <Box sx={{ width: '100%' }}>
+                    <Typography variant='body2' fontWeight='medium'>
+                      {process.firmName}
+                    </Typography>
+                    <Typography variant='caption' color='text.secondary'>
+                      {process.convoIds.length} conversations
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Conversation Selection */}
+          <FormControl fullWidth disabled={!selectedProcessId}>
             <InputLabel>Select Conversation</InputLabel>
             <Select
               value={selectedConversationId}
@@ -108,12 +132,13 @@ export const ReplyModal = ({
           </FormControl>
 
           {/* Email Composer */}
-          {selectedConversationId && selectedConversation && (
+          {selectedProcessId && selectedConversationId && selectedConversation && (
             <EmailComposer
+              key={`${selectedConversationId}-${selectedConversation?.messageCount}-${selectedConversation?.lastActivityAt}`}
               conversation={selectedConversation}
               onSend={handleSendReply}
               placeholder='Type your reply as the firm...'
-              showSendButton={false}
+              showSendButton={true}
               mode='incoming'
             />
           )}
@@ -121,15 +146,7 @@ export const ReplyModal = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} color='inherit'>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleClose}
-          variant='contained'
-          disabled={!selectedConversationId}
-          startIcon={<SendIcon />}
-        >
-          Send Reply
+          Close
         </Button>
       </DialogActions>
     </Dialog>

@@ -12,8 +12,8 @@ export function getIncomingEmailAddresses(conversation: Convo): string[] {
     // Only consider incoming messages from non-OPS roles
     if (message.direction === 'IN' && message.fromRole !== 'OPS') {
       const email = extractEmailAddress(message.from);
-      if (email && email !== message.from) {
-        // Only add if we extracted a valid email
+      if (email) {
+        // Add the extracted email address (works for both "Name <email>" and "email" formats)
         emailSet.add(email);
       }
     }

@@ -38,7 +38,6 @@ import {
   Edit as ComposeIcon,
   Add as AddIcon,
   Settings as ManageIcon,
-  Reply as ReplyIcon,
   SwapHoriz as MoveIcon,
 } from '@mui/icons-material';
 import type { DetailMode, ConvoState, EmailMsg, Convo } from '../utils/db';
@@ -56,7 +55,6 @@ import { Badge } from '../components/common/Badge';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { MessageCard } from '../components/conversations/MessageCard';
 import { SortableTableCell } from '../components/tables/SortableTableCell';
-import { ReplyModal } from '../components/modals/ReplyModal';
 import { MoveConversationModal } from '../components/modals/MoveConversationModal';
 
 // Utility imports
@@ -104,7 +102,6 @@ export const ProcessOverviewPage = () => {
   const [showEditInvestmentsModal, setShowEditInvestmentsModal] =
     useState<boolean>(false);
   const [editingInvestments, setEditingInvestments] = useState<number[]>([]);
-  const [showReplyModal, setShowReplyModal] = useState<boolean>(false);
   const [showMoveConversationModal, setShowMoveConversationModal] =
     useState<boolean>(false);
 
@@ -377,64 +374,6 @@ export const ProcessOverviewPage = () => {
     return sortInvestments(filtered, sortColumn, sortDirection);
   }
 
-  function handleSendFirmReply(
-    conversationId: string,
-    message: string,
-    toEmail?: string,
-    fromEmail?: string,
-  ) {
-    if (!store) return;
-
-    const selectedConvo = store.convos[conversationId];
-    if (!selectedConvo) return;
-
-    // Use provided fromEmail or fallback to finding one from existing messages
-    let firmEmail = fromEmail;
-    if (!firmEmail) {
-      firmEmail = 'admin@example.com'; // fallback
-      for (const msg of selectedConvo.messages) {
-        if (msg.direction === 'IN' && msg.fromRole !== 'OPS') {
-          // Extract email from "Name <email>" format or use as-is
-          const emailMatch = msg.from.match(/<([^>]+)>/);
-          firmEmail = emailMatch ? emailMatch[1] : msg.from;
-          break;
-        }
-      }
-    }
-
-    // Use provided toEmail or fallback to Arch alias
-    const recipientEmail = toEmail || selectedConvo.aliasEmail;
-
-    const newMessage: EmailMsg = {
-      id: `m_${Date.now()}`,
-      ts: new Date().toISOString(),
-      from: firmEmail, // Send from firm's email
-      fromRole: 'ADMIN', // This is a firm admin reply
-      to: [recipientEmail],
-      direction: 'IN', // This is incoming to Arch (from firm's perspective)
-      body: message,
-    };
-
-    // Update the store with the new message
-    const updatedConvo = {
-      ...selectedConvo,
-      messages: [...selectedConvo.messages, newMessage],
-      lastActivityAt: new Date().toISOString(),
-      messageCount: selectedConvo.messageCount + 1,
-      state: 'PENDING_ARCH' as const, // Set state to indicate Arch needs to respond
-    };
-
-    const updatedStore = {
-      ...store,
-      convos: {
-        ...store.convos,
-        [conversationId]: updatedConvo,
-      },
-    };
-
-    updateStore(updatedStore);
-  }
-
   function handleMoveConversations(conversationIds: string[], targetProcessId: number) {
     if (!store || !processId || conversationIds.length === 0) return;
 
@@ -482,31 +421,6 @@ export const ProcessOverviewPage = () => {
 
   return (
     <Container maxWidth='xl' sx={{ py: 3, bgcolor: 'background.default' }}>
-      {/* Floating Reply Button - positioned under theme and reset buttons */}
-      <Tooltip title='Reply as firm' placement='right'>
-        <IconButton
-          onClick={() => setShowReplyModal(true)}
-          sx={{
-            position: 'fixed',
-            top: 124,
-            left: 16,
-            zIndex: 9998, // Slightly lower than other buttons
-            bgcolor: 'primary.main',
-            color: 'primary.contrastText',
-            boxShadow: 2,
-            '&:hover': {
-              bgcolor: 'primary.dark',
-            },
-            '&:focus': {
-              bgcolor: 'primary.dark',
-            },
-          }}
-          aria-label='Send firm reply'
-        >
-          <ReplyIcon />
-        </IconButton>
-      </Tooltip>
-
       {/* Top Bar */}
       <Box sx={{ mb: 3 }}>
         <Stack direction='row' alignItems='center' sx={{ position: 'relative' }}>
@@ -1527,15 +1441,6 @@ export const ProcessOverviewPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Reply Modal */}
-      <ReplyModal
-        open={showReplyModal}
-        onClose={() => setShowReplyModal(false)}
-        store={store}
-        processId={processId || 0}
-        onSendReply={handleSendFirmReply}
-      />
 
       {/* Move Conversation Modal */}
       <MoveConversationModal
