@@ -2,8 +2,8 @@ import { Box, Card, CardContent, Stack, Typography, useTheme } from '@mui/materi
 import type { EmailMsg } from '../../utils/db';
 import { fmtDateTime } from '../../utils/db';
 import {
-  getFirmEmailColor,
-  isFirmEmail,
+  getFundEmailColor,
+  isFundEmail,
   extractEmailAddress,
 } from '../../utils/messageColors';
 
@@ -16,32 +16,32 @@ export const MessageCard = ({ msg }: MessageCardProps) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
   const emailAddress = extractEmailAddress(msg.from);
-  const isFromFirm = !isOut && isFirmEmail(msg.fromRole);
+  const isFromFund = !isOut && isFundEmail(msg.fromRole);
 
-  // Get distinct color for firm emails based on current theme
-  const firmColors = isFromFirm ? getFirmEmailColor(emailAddress, isDarkMode) : null;
+  // Get distinct color for fund emails based on current theme
+  const fundColors = isFromFund ? getFundEmailColor(emailAddress, isDarkMode) : null;
 
   return (
     <Card
       variant='outlined'
       sx={{
-        backgroundColor: firmColors ? firmColors.backgroundColor : 'action.hover',
-        borderColor: firmColors ? firmColors.borderColor : 'divider',
+        backgroundColor: fundColors ? fundColors.backgroundColor : 'action.hover',
+        borderColor: fundColors ? fundColors.borderColor : 'divider',
         borderWidth: 1,
         width: '90%',
         alignSelf: isOut ? 'flex-end' : 'flex-start',
-        ...(firmColors && {
-          // Override text colors for firm emails
+        ...(fundColors && {
+          // Override text colors for fund emails
           '& .MuiTypography-root': {
-            color: `${firmColors.textColor} !important`,
+            color: `${fundColors.textColor} !important`,
           },
           // Style the timestamp with slightly lower opacity
           '& .timestamp-text': {
-            color: `${firmColors.textColor}CC !important`, // 80% opacity
+            color: `${fundColors.textColor}CC !important`, // 80% opacity
           },
           // Style the "from → to" line with lower opacity
           '& .from-to-text': {
-            color: `${firmColors.textColor}B3 !important`, // 70% opacity
+            color: `${fundColors.textColor}B3 !important`, // 70% opacity
           },
         }),
       }}

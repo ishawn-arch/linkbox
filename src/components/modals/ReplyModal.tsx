@@ -78,7 +78,7 @@ export const ReplyModal = ({ open, onClose, store, onSendReply }: ReplyModalProp
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth='md' fullWidth>
-      <DialogTitle>Send Reply from Firm</DialogTitle>
+      <DialogTitle>Send Reply from Fund</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           {/* Process Selection */}
@@ -96,7 +96,7 @@ export const ReplyModal = ({ open, onClose, store, onSendReply }: ReplyModalProp
                 <MenuItem key={process.id} value={process.id}>
                   <Box sx={{ width: '100%' }}>
                     <Typography variant='body2' fontWeight='medium'>
-                      {process.firmName}
+                      {process.fundName}
                     </Typography>
                     <Typography variant='caption' color='text.secondary'>
                       {process.convoIds.length} conversations

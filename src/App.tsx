@@ -30,7 +30,7 @@ const FixedButtons = ({
   const { resetToDemo, store, updateStore } = useDatabaseContext();
   const [showReplyModal, setShowReplyModal] = useState<boolean>(false);
 
-  function handleSendFirmReply(
+  function handleSendFundReply(
     conversationId: string,
     message: string,
     toEmail?: string,
@@ -44,7 +44,7 @@ const FixedButtons = ({
     const newMessage: EmailMsg = {
       id: `m_${Date.now()}`,
       ts: new Date().toISOString(),
-      from: fromEmail || 'Generic Firm <firm@example.com>',
+      from: fromEmail || 'Generic Fund <fund@example.com>',
       fromRole: 'ADMIN',
       to: [toEmail || selectedConvo.aliasEmail],
       direction: 'IN',
@@ -148,7 +148,7 @@ const FixedButtons = ({
         open={showReplyModal}
         onClose={() => setShowReplyModal(false)}
         store={store}
-        onSendReply={handleSendFirmReply}
+        onSendReply={handleSendFundReply}
       />
     </>
   );

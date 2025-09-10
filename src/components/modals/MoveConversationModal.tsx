@@ -105,7 +105,7 @@ export const MoveConversationModal = ({
         Move Conversations to Another Process
         {currentProcess && (
           <Typography variant='caption' color='text.secondary' display='block'>
-            From: {currentProcess.firmName}
+            From: {currentProcess.fundName}
           </Typography>
         )}
       </DialogTitle>
@@ -123,7 +123,7 @@ export const MoveConversationModal = ({
                 <MenuItem key={process.id} value={process.id}>
                   <Box sx={{ width: '100%' }}>
                     <Typography variant='body2' fontWeight='medium'>
-                      {process.firmName}
+                      {process.fundName}
                     </Typography>
                     <Typography variant='caption' color='text.secondary'>
                       {store?.clients[process.clientId]?.name} • {process.convoIds.length}{' '}
@@ -139,7 +139,7 @@ export const MoveConversationModal = ({
           {selectedTargetProcess && (
             <Box>
               <Typography variant='subtitle2' gutterBottom>
-                Moving to: {selectedTargetProcess.firmName}
+                Moving to: {selectedTargetProcess.fundName}
               </Typography>
               <Typography variant='body2' color='text.secondary'>
                 Client: {store?.clients[selectedTargetProcess.clientId]?.name}
@@ -268,8 +268,8 @@ export const MoveConversationModal = ({
                         and <strong>{investmentCount} associated investment(s)</strong>
                       </>
                     )}{' '}
-                    from <strong>{currentProcess?.firmName}</strong> to{' '}
-                    <strong>{selectedTargetProcess.firmName}</strong>
+                    from <strong>{currentProcess?.fundName}</strong> to{' '}
+                    <strong>{selectedTargetProcess.fundName}</strong>
                   </Typography>
                   {investmentCount > 0 && (
                     <Typography

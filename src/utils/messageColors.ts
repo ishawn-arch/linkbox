@@ -44,9 +44,9 @@ function hashCode(str: string): number {
 }
 
 /**
- * Get a consistent color for a firm email address based on theme
+ * Get a consistent color for a fund email address based on theme
  */
-export function getFirmEmailColor(
+export function getFundEmailColor(
   emailAddress: string,
   isDarkMode: boolean = false,
 ): {
@@ -67,10 +67,10 @@ export function getFirmEmailColor(
 }
 
 /**
- * Check if an email should be treated as a firm email (not OPS/internal)
+ * Check if an email should be treated as a fund email (not OPS/internal)
  */
-export function isFirmEmail(fromRole: string): boolean {
-  // Only apply firm colors to incoming emails from ADMIN, FUND, or CLIENT roles
+export function isFundEmail(fromRole: string): boolean {
+  // Only apply fund colors to incoming emails from ADMIN, FUND, or CLIENT roles
   return fromRole === 'ADMIN' || fromRole === 'FUND' || fromRole === 'CLIENT';
 }
 

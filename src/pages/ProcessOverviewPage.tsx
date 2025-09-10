@@ -435,7 +435,7 @@ export const ProcessOverviewPage = () => {
             </Button>
           </Box>
 
-          {/* Center: Firm and Client Names */}
+          {/* Center: Fund and Client Names */}
           <Box
             sx={{
               position: 'absolute',
@@ -445,7 +445,7 @@ export const ProcessOverviewPage = () => {
             }}
           >
             <Typography variant='h5' component='h1' fontWeight={600}>
-              {selectedProcess.firmName}
+              {selectedProcess.fundName}
             </Typography>
             <Typography variant='caption' color='text.secondary'>
               {clientName}
@@ -789,7 +789,7 @@ export const ProcessOverviewPage = () => {
           <Box sx={{ width: { xs: '100%', md: '75%' } }}>
             <Card>
               <CardHeader
-                title={`Investments — ${selectedProcess.firmName}`}
+                title={`Investments — ${selectedProcess.fundName}`}
                 slotProps={{
                   title: { variant: 'h6' },
                 }}

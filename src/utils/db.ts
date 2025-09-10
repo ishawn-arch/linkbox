@@ -6,9 +6,9 @@ export type OpsMember = {
   email: string;
 };
 export type Client = { id: string; name: string; opsOwnerId: string };
-export type FirmProcess = {
+export type FundProcess = {
   id: number;
-  firmName: string;
+  fundName: string;
   clientId: string;
   convoIds: string[];
   roundIds: string[];
@@ -61,7 +61,7 @@ export type Round = {
 export type Store = {
   ops: Record<string, OpsMember>;
   clients: Record<string, Client>;
-  processes: Record<number, FirmProcess>;
+  processes: Record<number, FundProcess>;
   investments: Record<number, Investment>;
   convos: Record<string, Convo>;
   rounds: Record<string, Round>;
@@ -160,18 +160,18 @@ export function seedDemo(): Store {
   const alias1 = emailAliasForOps(ops1);
   const alias2 = emailAliasForOps(ops1);
 
-  const p1: FirmProcess = {
+  const p1: FundProcess = {
     id: 1,
-    firmName: 'Landmark Equity Partners',
+    fundName: 'Landmark Equity Partners',
     clientId: client1.id,
     convoIds: [],
     roundIds: [],
     createdAt: daysAgoIso(30),
     lastActivityAt: daysAgoIso(1),
   };
-  const p2: FirmProcess = {
+  const p2: FundProcess = {
     id: 2,
-    firmName: 'Blackstone GSO',
+    fundName: 'Blackstone GSO',
     clientId: client2.id,
     convoIds: [],
     roundIds: [],

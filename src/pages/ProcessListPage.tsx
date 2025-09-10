@@ -53,7 +53,7 @@ export const ProcessTable = ({ store }: { store: Store }) => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Firm</TableCell>
+              <TableCell>Fund</TableCell>
               <TableCell>Client</TableCell>
               <TableCell>Progress</TableCell>
               <TableCell># Convos</TableCell>
@@ -73,7 +73,7 @@ export const ProcessTable = ({ store }: { store: Store }) => {
                 >
                   <TableCell>
                     <Typography variant='subtitle2' fontWeight={600}>
-                      {p.firmName}
+                      {p.fundName}
                     </Typography>
                   </TableCell>
                   <TableCell>
