@@ -31,6 +31,8 @@ export type EmailMsg = {
   from: string;
   fromRole: 'OPS' | 'ADMIN' | 'FUND' | 'CLIENT';
   to: string[];
+  cc?: string[];
+  bcc?: string[];
   direction: 'OUT' | 'IN';
   body: string;
 };
@@ -192,6 +194,26 @@ export function seedDemo(): Store {
     });
   }
 
+  // Add additional investments for the multi-contact conversation
+  invs.push(
+    {
+      id: 282708,
+      clientId: client1.id,
+      investingEntity: 'Strategic Capital Partners',
+      fundName: 'Landmark XVII',
+      status: 'linked', // Completed by admin
+      lastActivityAt: daysAgoIso(3),
+    },
+    {
+      id: 282709,
+      clientId: client1.id,
+      investingEntity: 'Meridian Investment Group',
+      fundName: 'Landmark XVII',
+      status: 'in_progress', // Still being worked on by fund team
+      lastActivityAt: daysAgoIso(2),
+    },
+  );
+
   for (let i = 0; i < 10; i++) {
     invs.push({
       id: 283000 + i,
@@ -241,6 +263,8 @@ export function seedDemo(): Store {
     282700, 282701, 282702, 282703, 282704, 282705,
     // cv_1_m2 references these 2 from client1
     282706, 282707,
+    // cv_1_m3 references these 2 from client1 (multi-contact conversation)
+    282708, 282709,
     // cv_2_m1 references these 3 from client2
     283001, 283002, 283004,
     // cv_2_m2 references these 2 from client2
@@ -366,9 +390,69 @@ export function seedDemo(): Store {
         },
       ],
     },
+    // Example conversation with multiple firm contacts
+    {
+      id: 'cv_1_m3',
+      processId: p1.id,
+      aliasEmail: alias1,
+      subject: 'Multiple Contacts — Coordination Required',
+      participants: ['ADMIN', 'FUND'],
+      investmentRefs: [282708, 282709], // We'll need to add these investments
+      messageCount: 5,
+      lastActivityAt: daysAgoIso(2),
+      preview: 'Multiple firm contacts coordinating access - requires attention.',
+      state: 'PENDING_ARCH',
+      messages: [
+        {
+          id: 'm_multi_1',
+          ts: daysAgoIso(5),
+          from: `Arch <${alias1}>`,
+          fromRole: 'OPS',
+          to: ['admin@landmark.com', 'operations@landmark.com'],
+          direction: 'OUT',
+          body: 'Requesting portal access for two additional investments. Please coordinate internally and confirm once completed.',
+        },
+        {
+          id: 'm_multi_2',
+          ts: daysAgoIso(4),
+          from: 'Landmark Operations <operations@landmark.com>',
+          fromRole: 'ADMIN',
+          to: [alias1],
+          direction: 'IN',
+          body: 'Received your request. Our admin team will handle the first investment, and I will personally handle the second one. Expect updates within 24-48 hours.',
+        },
+        {
+          id: 'm_multi_3',
+          ts: daysAgoIso(3),
+          from: 'Landmark Admin <admin@landmark.com>',
+          fromRole: 'ADMIN',
+          to: [alias1],
+          direction: 'IN',
+          body: 'Admin here - I have completed setup for investment #282708. Portal access should be available now. Please verify.',
+        },
+        {
+          id: 'm_multi_4',
+          ts: daysAgoIso(2),
+          from: 'Landmark Fund Manager <fund.manager@landmark.com>',
+          fromRole: 'FUND',
+          to: [alias1],
+          direction: 'IN',
+          body: 'Fund management team here. We are still working on investment #282709 - there are some additional compliance checks required. Will update you by end of week.',
+        },
+        {
+          id: 'm_multi_5',
+          ts: daysAgoIso(2),
+          from: 'Landmark Operations <operations@landmark.com>',
+          fromRole: 'ADMIN',
+          to: [alias1],
+          direction: 'IN',
+          body: 'Operations follow-up: Admin has completed their part, fund team is handling the remaining item. Both teams are coordinated and on track.',
+        },
+      ],
+    },
   ];
 
-  p1.convoIds = ['cv_1_m1', 'cv_1_m2'];
+  p1.convoIds = ['cv_1_m1', 'cv_1_m2', 'cv_1_m3'];
   p2.convoIds = ['cv_2_m1', 'cv_2_m2'];
 
   // Update conversation states based on investment completion
@@ -393,7 +477,7 @@ export function seedDemo(): Store {
     processId: p1.id,
     label: 'Round 1',
     sentAt: daysAgoIso(14),
-    convoIds: ['cv_1_m1', 'cv_1_m2'],
+    convoIds: ['cv_1_m1', 'cv_1_m2', 'cv_1_m3'],
   };
   const r1_p2: Round = {
     id: 'r1_2',

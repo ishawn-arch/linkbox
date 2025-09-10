@@ -73,6 +73,7 @@ import {
   getInvestmentsNotInProcess,
   filterInvestmentsByStatus,
 } from '../utils/investments';
+import { EmailComposer } from '../components/common/EmailComposer';
 
 // Utility function to get conversations for a specific investment
 function getInvestmentConversations(
@@ -94,7 +95,6 @@ export const ProcessOverviewPage = () => {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [composeMessage, setComposeMessage] = useState<string>('');
   const [showCompose, setShowCompose] = useState<boolean>(false);
   const [showNewConvoModal, setShowNewConvoModal] = useState<boolean>(false);
   const [newConvoTo, setNewConvoTo] = useState<string>('');
@@ -166,32 +166,29 @@ export const ProcessOverviewPage = () => {
     setSelectedStatusFilter(selectedStatusFilter === status ? null : status);
   }
 
-  function handleSendMessage() {
-    if (!selectedConvoId || !composeMessage.trim() || !store) {
+  function handleSendMessage(
+    to: string,
+    cc: string[],
+    bcc: string[],
+    message: string,
+    from?: string,
+  ) {
+    if (!selectedConvoId || !store) {
       return;
     }
 
     const selectedConvo = store.convos[selectedConvoId];
 
-    // Find the firm email from existing messages (look for non-Arch emails)
-    let firmEmail = 'admin@example.com'; // fallback
-    for (const msg of selectedConvo.messages) {
-      if (msg.fromRole !== 'OPS' && msg.direction === 'IN') {
-        // Extract email from "Name <email>" format or use as-is
-        const emailMatch = msg.from.match(/<([^>]+)>/);
-        firmEmail = emailMatch ? emailMatch[1] : msg.from;
-        break;
-      }
-    }
-
     const newMessage: EmailMsg = {
       id: `m_${Date.now()}`,
       ts: new Date().toISOString(),
-      from: `Arch <${selectedConvo.aliasEmail}>`,
+      from: from || `Arch <${selectedConvo.aliasEmail}>`, // Use provided from or default to Arch
       fromRole: 'OPS',
-      to: [firmEmail],
+      to: [to],
+      cc: cc.length > 0 ? cc : undefined,
+      bcc: bcc.length > 0 ? bcc : undefined,
       direction: 'OUT',
-      body: composeMessage.trim(),
+      body: message,
     };
 
     // Update the store with the new message
@@ -212,7 +209,6 @@ export const ProcessOverviewPage = () => {
     };
 
     updateStore(updatedStore);
-    setComposeMessage('');
     setShowCompose(false); // Hide compose after sending
   }
 
@@ -381,29 +377,40 @@ export const ProcessOverviewPage = () => {
     return sortInvestments(filtered, sortColumn, sortDirection);
   }
 
-  function handleSendFirmReply(conversationId: string, message: string) {
+  function handleSendFirmReply(
+    conversationId: string,
+    message: string,
+    toEmail?: string,
+    fromEmail?: string,
+  ) {
     if (!store) return;
 
     const selectedConvo = store.convos[conversationId];
     if (!selectedConvo) return;
 
-    // Get the firm email from existing messages (look for incoming messages)
-    let firmEmail = 'admin@example.com'; // fallback
-    for (const msg of selectedConvo.messages) {
-      if (msg.direction === 'IN' && msg.fromRole !== 'OPS') {
-        // Extract email from "Name <email>" format or use as-is
-        const emailMatch = msg.from.match(/<([^>]+)>/);
-        firmEmail = emailMatch ? emailMatch[1] : msg.from;
-        break;
+    // Use provided fromEmail or fallback to finding one from existing messages
+    let firmEmail = fromEmail;
+    if (!firmEmail) {
+      firmEmail = 'admin@example.com'; // fallback
+      for (const msg of selectedConvo.messages) {
+        if (msg.direction === 'IN' && msg.fromRole !== 'OPS') {
+          // Extract email from "Name <email>" format or use as-is
+          const emailMatch = msg.from.match(/<([^>]+)>/);
+          firmEmail = emailMatch ? emailMatch[1] : msg.from;
+          break;
+        }
       }
     }
+
+    // Use provided toEmail or fallback to Arch alias
+    const recipientEmail = toEmail || selectedConvo.aliasEmail;
 
     const newMessage: EmailMsg = {
       id: `m_${Date.now()}`,
       ts: new Date().toISOString(),
       from: firmEmail, // Send from firm's email
       fromRole: 'ADMIN', // This is a firm admin reply
-      to: [selectedConvo.aliasEmail],
+      to: [recipientEmail],
       direction: 'IN', // This is incoming to Arch (from firm's perspective)
       body: message,
     };
@@ -731,32 +738,13 @@ export const ProcessOverviewPage = () => {
                         <Typography variant='body2' color='text.secondary' gutterBottom>
                           Reply
                         </Typography>
-                        <Stack direction='row' spacing={1} alignItems='flex-end'>
-                          <TextField
-                            fullWidth
-                            multiline
-                            rows={3}
-                            placeholder='Type your reply...'
-                            value={composeMessage}
-                            onChange={(e) => setComposeMessage(e.target.value)}
-                            onKeyDown={(e) => {
-                              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                                e.preventDefault();
-                                handleSendMessage();
-                              }
-                            }}
-                            variant='outlined'
-                            size='small'
-                          />
-                          <IconButton
-                            color='primary'
-                            onClick={handleSendMessage}
-                            disabled={!composeMessage.trim()}
-                            sx={{ mb: 0.5 }}
-                          >
-                            <SendIcon />
-                          </IconButton>
-                        </Stack>
+                        <EmailComposer
+                          conversation={
+                            selectedConvoId ? store.convos[selectedConvoId] : null
+                          }
+                          onSend={handleSendMessage}
+                          placeholder='Type your reply...'
+                        />
                       </Box>
                     )}
 
