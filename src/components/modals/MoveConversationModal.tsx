@@ -225,11 +225,6 @@ export const MoveConversationModal = ({
                                   sx={{ flexWrap: 'wrap', gap: 0.5 }}
                                 >
                                   {getConversationStateBadge(convo.state)}
-                                  {convo.participants
-                                    .filter((p) => p !== 'ADMIN')
-                                    .map((p) => (
-                                      <Badge key={p} text={p} />
-                                    ))}
                                 </Stack>
                                 <Typography variant='caption' color='text.secondary'>
                                   {convo.messageCount} messages •{' '}

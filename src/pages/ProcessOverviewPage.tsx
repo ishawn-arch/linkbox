@@ -673,11 +673,6 @@ export const ProcessOverviewPage = () => {
                               sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}
                             >
                               {stateBadge(cv.state)}
-                              {cv.participants
-                                .filter((p) => p !== 'ADMIN')
-                                .map((p) => (
-                                  <Badge key={p} text={p} />
-                                ))}
                             </Stack>
                           }
                         />
@@ -724,15 +719,6 @@ export const ProcessOverviewPage = () => {
               {selectedConvoId && (
                 <CardContent>
                   <Stack spacing={3}>
-                    <Stack direction='row' spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                      {stateBadge(store.convos[selectedConvoId].state)}
-                      {store.convos[selectedConvoId].participants
-                        .filter((p) => p !== 'ADMIN')
-                        .map((p) => (
-                          <Badge key={p} text={p} />
-                        ))}
-                    </Stack>
-
                     {showCompose && (
                       <Box>
                         <Typography variant='body2' color='text.secondary' gutterBottom>
@@ -781,7 +767,7 @@ export const ProcessOverviewPage = () => {
                   selectedConvoId ? (
                     <IconButton
                       onClick={handleEditInvestments}
-                      color='default'
+                      color={showEditInvestmentsModal ? 'primary' : 'default'}
                       size='small'
                       title='Manage investments in this conversation'
                     >
@@ -1090,11 +1076,6 @@ export const ProcessOverviewPage = () => {
                                   sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}
                                 >
                                   {stateBadge(convo.state)}
-                                  {convo.participants
-                                    .filter((p) => p !== 'ADMIN')
-                                    .map((p) => (
-                                      <Badge key={p} text={p} />
-                                    ))}
                                 </Stack>
                               }
                             />
