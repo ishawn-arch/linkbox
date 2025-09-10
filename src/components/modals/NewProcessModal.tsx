@@ -51,7 +51,6 @@ export interface NewProcessModalProps {
 export const NewProcessModal = ({
   open,
   onClose,
-  onSubmit,
   fundName,
   onFundNameChange,
   clientName,
